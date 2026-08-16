@@ -1,5 +1,6 @@
 # Local database credentials
 config/database.php
+.env
 
 # Temporary database test
 db_test.php

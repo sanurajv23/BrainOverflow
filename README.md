@@ -41,6 +41,69 @@ BrainOverflow is a developer-focused blog application being built for the Univer
 - **Database:** MariaDB/MySQL
 - **Local Development:** XAMPP or PHP development server
 
+## Implemented Features
+
+### User Registration
+
+- User registration form
+- Username validation
+- Email validation
+- Password validation
+- Confirm password validation
+- Duplicate username detection
+- Duplicate email detection
+- Secure password hashing using `password_hash()`
+- User records stored in MySQL
+- Default user role set to `user`
+
+### Password Strength Checker
+
+- Password strength indicator on the registration form
+- Appears only when the user starts entering a password
+- Hides again when the password field is empty
+- Updates in real time as the user types
+- Checks for:
+  - Minimum 8 characters
+  - Uppercase letter
+  - Lowercase letter
+  - Number
+  - Special character
+- Compact two-column requirement layout on desktop
+- Responsive one-column layout on smaller screens
+
+### Registration UI
+
+- Dark navy developer-themed registration interface
+- Two-column authentication card
+- BrainOverflow branding
+- Welcome panel
+- Registration form panel
+- Rounded input fields
+- Responsive design for smaller screens
+- Light-blue glowing border around the main registration card
+- Clean flat Login and Register buttons
+- Google sign-up button UI
+
+### Interactive UI
+
+- Mouse-following glow/comet-tail effect
+- Normal browser cursor is preserved
+- Touch/mobile devices avoid unnecessary cursor trail elements
+- Subtle blue visual effects that match the BrainOverflow theme
+
+### Database
+
+- MySQL/MariaDB database support
+- `brainoverflow` database
+- `users` table for user accounts
+- User account fields include:
+  - `username`
+  - `email`
+  - `password`
+  - `role`
+
+No database passwords, API keys, OAuth client secrets, or other private credentials should be committed to the repository.
+
 ## Project Structure
 
 ```text
@@ -98,7 +161,19 @@ http://localhost/BrainOverflow
 
 ## Development Status
 
-BrainOverflow is currently under development. The current version focuses on the home page UI, static sample blog content, and initial database connection setup.
+BrainOverflow is currently under development.
+
+| Feature | Status |
+|---|---|
+| User Registration | Completed |
+| Password Strength Checker | Completed |
+| Registration UI | Completed |
+| Responsive Registration UI | Completed |
+| Mouse Glow Effect | Completed |
+| Normal Login | Pending |
+| Logout | Pending |
+| Blog CRUD | Pending |
+| Google OAuth | Pending / Credentials required |
 
 ## Future Improvements
 

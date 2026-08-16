@@ -1,83 +1,10 @@
-<?php
-session_start();
-
-$errors = [];
-$successMessage = '';
-$username = '';
-$email = '';
-$oauthError = $_SESSION['oauth_error'] ?? '';
-unset($_SESSION['oauth_error']);
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $confirmPassword = $_POST['confirm_password'] ?? '';
-
-    if ($username === '' || $email === '' || $password === '' || $confirmPassword === '') {
-        $errors[] = 'Please fill in all fields.';
-    }
-
-    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Please enter a valid email address.';
-    }
-
-    if ($password !== $confirmPassword) {
-        $errors[] = 'Password and confirm password do not match.';
-    }
-
-    if (empty($errors)) {
-        try {
-            require __DIR__ . '/config/database.php';
-
-            $checkEmail = $pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
-            $checkEmail->execute(['email' => $email]);
-
-            if ($checkEmail->fetch()) {
-                $errors[] = 'An account with this email already exists.';
-            }
-
-            $checkUsername = $pdo->prepare('SELECT id FROM users WHERE username = :username LIMIT 1');
-            $checkUsername->execute(['username' => $username]);
-            $existingUsername = $checkUsername->fetch();
-
-            if ($existingUsername) {
-                $errors[] = 'This username is already taken.';
-            }
-
-            if (empty($errors)) {
-                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-
-                $insertUser = $pdo->prepare(
-                    'INSERT INTO users (username, email, password, role)
-                     VALUES (:username, :email, :password, :role)'
-                );
-
-                $insertUser->execute([
-                    'username' => $username,
-                    'email' => $email,
-                    'password' => $hashedPassword,
-                    'role' => 'user',
-                ]);
-
-                $successMessage = 'Registration successful. You can log in once the login feature is available.';
-                $username = '';
-                $email = '';
-            }
-        } catch (Throwable $error) {
-            error_log('BrainOverflow registration error: ' . $error->getMessage());
-            $errors[] = 'Registration could not be completed. Please try again later.';
-        }
-    }
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Create a BrainOverflow account.">
-    <title>Register - BrainOverflow</title>
+    <meta name="description" content="Log in to BrainOverflow.">
+    <title>Login - BrainOverflow</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -93,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 var(--color-bg);
         }
 
-        .register-shell {
+        .login-shell {
             position: relative;
             z-index: 2;
             min-height: 100vh;
@@ -148,11 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: rgba(7, 11, 20, 0.72);
             border: 1px solid rgba(96, 165, 250, 0.36);
             border-radius: 18px;
-            box-shadow:
-                0 28px 90px rgba(0, 0, 0, 0.48),
-                0 0 8px rgba(80, 180, 255, 0.3125),
-                0 0 20px rgba(50, 150, 255, 0.1875),
-                0 0 44px rgba(59, 130, 246, 0.08);
+            box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48), 0 0 44px rgba(59, 130, 246, 0.08);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
         }
@@ -210,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .welcome-content p {
             color: #c7d2fe;
-            font-size: 0.86rem;
+            font-size: 0.9rem;
             line-height: 1.65;
         }
 
@@ -303,13 +226,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .auth-header {
-            margin-bottom: 14px;
+            margin-bottom: 18px;
             text-align: center;
         }
 
         .auth-header h1 {
             color: #fff;
-            font-size: 1.28rem;
+            font-size: 1.5rem;
             line-height: 1.16;
             margin-bottom: 8px;
         }
@@ -321,7 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .form-group {
             position: relative;
-            margin-bottom: 9px;
+            margin-bottom: 10px;
         }
 
         .form-group label {
@@ -346,12 +269,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .form-control {
             width: 100%;
-            min-height: 35px;
-            padding: 7px 14px 7px 48px;
+            min-height: 40px;
+            padding: 10px 14px 10px 48px;
             color: #fff;
             background: rgba(8, 18, 36, 0.72);
             border: 1px solid rgba(96, 165, 250, 0.25);
-            border-radius: 11px;
+            border-radius: 9px;
             font: inherit;
             font-size: 1rem;
             outline: none;
@@ -368,80 +291,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14), 0 0 24px rgba(59, 130, 246, 0.12);
         }
 
-        .password-strength {
-            max-height: 0;
-            margin: 0;
-            opacity: 0;
-            overflow: hidden;
-            transition: max-height 0.2s ease, margin 0.2s ease, opacity 0.2s ease;
-        }
-
-        .password-strength.is-visible {
-            max-height: 150px;
-            margin: 7px 0 8px;
-            opacity: 1;
-        }
-
-        .strength-summary {
+        .forgot-link {
             display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #cbd5e1;
-            font-size: 13px;
-            line-height: 1.4;
+            justify-content: flex-end;
+            margin: -2px 0 12px;
         }
 
-        .strength-title,
-        .strength-label {
-            font-size: 13px;
+        .forgot-link a {
+            color: var(--color-primary-light);
+            font-size: 0.88rem;
             font-weight: 700;
         }
 
-        .strength-meter {
-            flex: 1;
-            height: 5px;
-            overflow: hidden;
-            border-radius: 999px;
-            background: rgba(148, 163, 184, 0.18);
-        }
-
-        .strength-meter-fill {
-            display: block;
-            width: 0;
-            height: 100%;
-            border-radius: inherit;
-            background: #ef4444;
-            transition: width 0.2s ease, background 0.2s ease;
-        }
-
-        .strength-requirements {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            column-gap: 14px;
-            row-gap: 3px;
-            margin: 6px 0 0;
-            padding: 0;
-            color: #94a3b8;
-            font-size: 11.5px;
-            line-height: 1.35;
-            list-style: none;
-        }
-
-        .strength-requirements li::before {
-            content: 'x';
-            display: inline-block;
-            width: 14px;
-            color: #f87171;
-            font-weight: 700;
-        }
-
-        .strength-requirements li.is-met {
-            color: #cbd5e1;
-        }
-
-        .strength-requirements li.is-met::before {
-            content: '\2713';
-            color: #38bdf8;
+        .forgot-link a:hover {
+            color: #fff;
         }
 
         button.auth-submit {
@@ -449,7 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 100%;
             justify-content: center;
             min-height: 40px;
-            margin-top: 10px;
+            margin-top: 0;
             border-radius: 9px;
             border: 1px solid rgba(14, 165, 233, 0.72);
             color: #eaf6ff;
@@ -486,36 +349,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 0 0 28px rgba(59, 130, 246, 0.10);
         }
 
-        .auth-message {
-            padding: 10px 12px;
-            border-radius: var(--radius-sm);
-            font-size: 0.88rem;
-            margin-bottom: 18px;
-        }
-
-        .auth-message.error {
-            color: #fecaca;
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.22);
-        }
-
-        .auth-message.success {
-            color: #bbf7d0;
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.22);
-        }
-
-        .auth-message ul {
-            list-style: disc;
-            padding-left: 18px;
-        }
-
         .auth-divider {
             display: grid;
             grid-template-columns: 1fr auto 1fr;
             align-items: center;
             gap: 18px;
-            margin: 12px 0 10px;
+            margin: 14px 0 12px;
             color: #aebbd2;
             font-size: 0.95rem;
         }
@@ -540,8 +379,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 9px;
             font: inherit;
             font-weight: 700;
-            text-decoration: none;
-            cursor: pointer;
+            cursor: default;
         }
 
         .google-mark {
@@ -559,7 +397,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .auth-bottom {
-            margin-top: 8px;
+            margin-top: 10px;
             text-align: center;
             color: var(--color-text-light);
             font-size: 0.9rem;
@@ -608,7 +446,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         @media (max-width: 560px) {
-            .register-shell {
+            .login-shell {
                 padding: 22px 0;
             }
 
@@ -659,22 +497,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             .form-control {
-                min-height: 42px;
-                padding: 9px 14px 9px 58px;
+                min-height: 56px;
+                padding-left: 58px;
             }
 
             .input-icon {
                 left: 19px;
             }
-
-            .strength-requirements {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 </head>
 <body>
-    <div class="register-shell">
+    <div class="login-shell">
         <header class="container auth-topbar">
             <a href="index.php" class="logo">
                 <svg class="logo-svg" width="36" height="36" viewBox="0 0 36 36" fill="none">
@@ -719,11 +553,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <path d="M70 38C80 38 85 44 85 53C92 55 94 64 88 70C89 78 82 84 73 82C69 87 62 85 60 78" stroke="#93c5fd" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
                                 <h1>Hello, Welcome!</h1>
-                                <p>Join BrainOverflow and become a part of a developer community.</p>
+                                <p>Don't have an account?</p>
                                 <div class="code-divider">&lt;/&gt;</div>
                                 <div class="welcome-login">
-                                    <p>Already have an account?</p>
-                                    <a href="login.php" class="auth-side-btn"><span>Login</span> <span aria-hidden="true">&rarr;</span></a>
+                                    <p>Join the BrainOverflow developer community.</p>
+                                    <a href="register.php" class="auth-side-btn"><span>Create Account</span> <span aria-hidden="true">&rarr;</span></a>
                                 </div>
                             </div>
                         </aside>
@@ -731,49 +565,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="auth-form-panel">
                             <div class="auth-form-inner">
                                 <div class="auth-header">
-                                    <h1>Create your account</h1>
-                                    <p>Fill in the details below to get started.</p>
+                                    <h1>Welcome Back</h1>
+                                    <p>Sign in to continue to BrainOverflow.</p>
                                 </div>
 
-                                <?php if (!empty($errors)): ?>
-                                    <div class="auth-message error">
-                                        <ul>
-                                            <?php foreach ($errors as $error): ?>
-                                                <li><?php echo htmlspecialchars($error); ?></li>
-                                            <?php endforeach; ?>
-                                        </ul>
-                                    </div>
-                                <?php endif; ?>
-
-                                <?php if ($successMessage !== ''): ?>
-                                    <div class="auth-message success">
-                                        <?php echo htmlspecialchars($successMessage); ?>
-                                    </div>
-                                <?php endif; ?>
-
-                                <?php if ($oauthError !== ''): ?>
-                                    <div class="auth-message error">
-                                        <?php echo htmlspecialchars($oauthError); ?>
-                                    </div>
-                                <?php endif; ?>
-
-                                <form method="POST" action="register.php" novalidate>
+                                <form method="POST" action="login.php" novalidate>
                                     <div class="form-group">
-                                        <label for="username">Username</label>
+                                        <label for="login_identifier">Username or Email</label>
                                         <svg class="input-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                             <path d="M20 21C20 17.7 16.4 15 12 15C7.6 15 4 17.7 4 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                                             <path d="M12 12C14.2 12 16 10.2 16 8C16 5.8 14.2 4 12 4C9.8 4 8 5.8 8 8C8 10.2 9.8 12 12 12Z" stroke="currentColor" stroke-width="1.8"/>
                                         </svg>
-                                        <input class="form-control" type="text" id="username" name="username" value="<?php echo htmlspecialchars($username); ?>" autocomplete="username" placeholder="Username">
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="email">Email address</label>
-                                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                            <path d="M4 6H20V18H4V6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                                            <path d="M5 7L12 13L19 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        <input class="form-control" type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>" autocomplete="email" placeholder="Email address">
+                                        <input class="form-control" type="text" id="login_identifier" name="login_identifier" autocomplete="username" placeholder="Username or Email">
                                     </div>
 
                                     <div class="form-group">
@@ -783,42 +586,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             <path d="M6 10H18V20H6V10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
                                             <path d="M12 14V16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                                         </svg>
-                                        <input class="form-control" type="password" id="password" name="password" autocomplete="new-password" placeholder="Password">
+                                        <input class="form-control" type="password" id="password" name="password" autocomplete="current-password" placeholder="Password">
                                     </div>
 
-                                    <div class="password-strength" id="passwordStrength" aria-live="polite">
-                                        <div class="strength-summary">
-                                            <span class="strength-title">Password strength:</span>
-                                            <span class="strength-meter" aria-hidden="true"><span class="strength-meter-fill" id="strengthMeterFill"></span></span>
-                                            <span class="strength-label" id="strengthLabel">Weak</span>
-                                        </div>
-                                        <ul class="strength-requirements">
-                                            <li data-requirement="length">At least 8 characters</li>
-                                            <li data-requirement="uppercase">Uppercase letter</li>
-                                            <li data-requirement="lowercase">Lowercase letter</li>
-                                            <li data-requirement="number">At least one number</li>
-                                            <li data-requirement="special">At least one special character</li>
-                                        </ul>
+                                    <div class="forgot-link">
+                                        <a href="#">Forgot Password?</a>
                                     </div>
 
-                                    <div class="form-group">
-                                        <label for="confirm_password">Confirm Password</label>
-                                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                            <path d="M7 10V8C7 5.2 9.2 3 12 3C14.8 3 17 5.2 17 8V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                                            <path d="M6 10H18V20H6V10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                                            <path d="M12 14V16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                                        </svg>
-                                        <input class="form-control" type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" placeholder="Confirm Password">
-                                    </div>
-
-                                    <button type="submit" class="btn btn-hero auth-submit">Register <span aria-hidden="true">&rarr;</span></button>
+                                    <button type="submit" class="btn auth-submit">Login <span aria-hidden="true">&rarr;</span></button>
                                 </form>
 
                                 <div class="auth-divider"><span>or</span></div>
-                                <a class="google-placeholder" href="google-auth.php"><span class="google-mark" aria-hidden="true">G</span> Sign up with Google</a>
+                                <button class="google-placeholder" type="button" aria-disabled="true"><span class="google-mark" aria-hidden="true">G</span> Continue with Google</button>
 
                                 <p class="auth-bottom">
-                                    Already have an account? <a href="login.php">Login</a>
+                                    Don't have an account? <a href="register.php">Create Account</a>
                                 </p>
                             </div>
                         </div>
@@ -836,65 +618,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="cursor-glow" id="cursorGlow"></div>
     <script src="js/main.js"></script>
-    <script>
-        (function () {
-            var passwordInput = document.getElementById('password');
-            var strengthPanel = document.getElementById('passwordStrength');
-            var meterFill = document.getElementById('strengthMeterFill');
-            var strengthLabel = document.getElementById('strengthLabel');
-            var requirementItems = strengthPanel ? strengthPanel.querySelectorAll('[data-requirement]') : [];
-
-            if (!passwordInput || !strengthPanel || !meterFill || !strengthLabel) {
-                return;
-            }
-
-            function updatePasswordStrength() {
-                var password = passwordInput.value;
-
-                if (password === '') {
-                    strengthPanel.classList.remove('is-visible');
-                    meterFill.style.width = '0';
-                    strengthLabel.textContent = 'Weak';
-                    requirementItems.forEach(function (item) {
-                        item.classList.remove('is-met');
-                    });
-                    return;
-                }
-
-                var checks = {
-                    length: password.length >= 8,
-                    uppercase: /[A-Z]/.test(password),
-                    lowercase: /[a-z]/.test(password),
-                    number: /[0-9]/.test(password),
-                    special: /[^A-Za-z0-9]/.test(password)
-                };
-
-                var score = Object.keys(checks).filter(function (key) {
-                    return checks[key];
-                }).length;
-
-                requirementItems.forEach(function (item) {
-                    item.classList.toggle('is-met', checks[item.dataset.requirement]);
-                });
-
-                strengthPanel.classList.add('is-visible');
-                meterFill.style.width = (score * 20) + '%';
-
-                if (score <= 2) {
-                    strengthLabel.textContent = 'Weak';
-                    meterFill.style.background = '#ef4444';
-                } else if (score <= 4) {
-                    strengthLabel.textContent = 'Medium';
-                    meterFill.style.background = '#38bdf8';
-                } else {
-                    strengthLabel.textContent = 'Strong';
-                    meterFill.style.background = '#22c55e';
-                }
-            }
-
-            passwordInput.addEventListener('input', updatePasswordStrength);
-            updatePasswordStrength();
-        }());
-    </script>
 </body>
 </html>
