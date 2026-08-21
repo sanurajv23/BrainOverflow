@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/auth.php';
+brainoverflow_start_session();
 
 $errors = [];
 $successMessage = '';
@@ -14,12 +15,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
 
-    if ($username === '' || $email === '' || $password === '' || $confirmPassword === '') {
+    if (!brainoverflow_verify_csrf_token($_POST['csrf_token'] ?? null)) {
+        $errors[] = 'Your registration session expired. Please try again.';
+    } elseif ($username === '' || $email === '' || $password === '' || $confirmPassword === '') {
         $errors[] = 'Please fill in all fields.';
     }
 
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Please enter a valid email address.';
+    }
+
+    if ($username !== '') {
+        $errors = array_merge($errors, brainoverflow_validate_username($username));
+    }
+
+    if ($password !== '') {
+        $errors = array_merge($errors, brainoverflow_validate_password($password));
     }
 
     if ($password !== $confirmPassword) {
@@ -60,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'role' => 'user',
                 ]);
 
-                $successMessage = 'Registration successful. You can log in once the login feature is available.';
+                $successMessage = 'Registration successful. You can now log in.';
                 $username = '';
                 $email = '';
             }
@@ -758,6 +769,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <?php endif; ?>
 
                                 <form method="POST" action="register.php" novalidate>
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(brainoverflow_csrf_token()); ?>">
                                     <div class="form-group">
                                         <label for="username">Username</label>
                                         <svg class="input-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">

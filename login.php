@@ -1,3 +1,63 @@
+<?php
+require_once __DIR__ . '/includes/auth.php';
+brainoverflow_start_session();
+
+if (brainoverflow_is_logged_in()) {
+    header('Location: index.php');
+    exit;
+}
+
+$errors = [];
+$loginIdentifier = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $loginIdentifier = trim($_POST['login_identifier'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    if (!brainoverflow_verify_csrf_token($_POST['csrf_token'] ?? null)) {
+        $errors[] = 'Your login session expired. Please try again.';
+    } elseif ($loginIdentifier === '' || $password === '') {
+        $errors[] = 'Please enter your username or email and password.';
+    }
+
+    if (empty($errors)) {
+        try {
+            require __DIR__ . '/config/database.php';
+
+            $findUser = $pdo->prepare(
+                'SELECT id, username, email, password, role
+                 FROM users
+                 WHERE username = :username_identifier OR email = :email_identifier
+                 LIMIT 1'
+            );
+            $findUser->execute([
+                'username_identifier' => $loginIdentifier,
+                'email_identifier' => $loginIdentifier,
+            ]);
+            $user = $findUser->fetch();
+
+            if (!$user || empty($user['password']) || !password_verify($password, $user['password'])) {
+                $errors[] = 'Invalid username/email or password.';
+            } else {
+                if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
+                    $updatePassword = $pdo->prepare('UPDATE users SET password = :password WHERE id = :id');
+                    $updatePassword->execute([
+                        'password' => password_hash($password, PASSWORD_DEFAULT),
+                        'id' => $user['id'],
+                    ]);
+                }
+
+                brainoverflow_login_user($user);
+                header('Location: index.php');
+                exit;
+            }
+        } catch (Throwable $error) {
+            error_log('BrainOverflow login error: ' . $error->getMessage());
+            $errors[] = 'Login could not be completed. Please try again later.';
+        }
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -396,6 +456,27 @@
             line-height: 1;
         }
 
+        .auth-message {
+            margin-bottom: 14px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .auth-message.error {
+            color: #dc2626;
+            background: rgba(220, 38, 38, 0.08);
+            border: 1px solid rgba(220, 38, 38, 0.18);
+        }
+
+        .auth-message ul {
+            display: grid;
+            gap: 4px;
+            padding-left: 18px;
+            list-style: disc;
+        }
+
         .auth-bottom {
             margin-top: 10px;
             text-align: center;
@@ -569,14 +650,25 @@
                                     <p>Sign in to continue to BrainOverflow.</p>
                                 </div>
 
+                                <?php if (!empty($errors)): ?>
+                                    <div class="auth-message error">
+                                        <ul>
+                                            <?php foreach ($errors as $error): ?>
+                                                <li><?php echo htmlspecialchars($error); ?></li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </div>
+                                <?php endif; ?>
+
                                 <form method="POST" action="login.php" novalidate>
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(brainoverflow_csrf_token()); ?>">
                                     <div class="form-group">
                                         <label for="login_identifier">Username or Email</label>
                                         <svg class="input-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                             <path d="M20 21C20 17.7 16.4 15 12 15C7.6 15 4 17.7 4 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                                             <path d="M12 12C14.2 12 16 10.2 16 8C16 5.8 14.2 4 12 4C9.8 4 8 5.8 8 8C8 10.2 9.8 12 12 12Z" stroke="currentColor" stroke-width="1.8"/>
                                         </svg>
-                                        <input class="form-control" type="text" id="login_identifier" name="login_identifier" autocomplete="username" placeholder="Username or Email">
+                                        <input class="form-control" type="text" id="login_identifier" name="login_identifier" autocomplete="username" placeholder="Username or Email" value="<?php echo htmlspecialchars($loginIdentifier); ?>">
                                     </div>
 
                                     <div class="form-group">
@@ -597,7 +689,7 @@
                                 </form>
 
                                 <div class="auth-divider"><span>or</span></div>
-                                <button class="google-placeholder" type="button" aria-disabled="true"><span class="google-mark" aria-hidden="true">G</span> Continue with Google</button>
+                                <a class="google-placeholder" href="google-auth.php"><span class="google-mark" aria-hidden="true">G</span> Continue with Google</a>
 
                                 <p class="auth-bottom">
                                     Don't have an account? <a href="register.php">Create Account</a>

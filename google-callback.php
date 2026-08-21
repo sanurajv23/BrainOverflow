@@ -1,7 +1,6 @@
 <?php
-session_start();
-
 require __DIR__ . '/includes/google_oauth.php';
+brainoverflow_start_session();
 
 function redirect_with_oauth_error(string $message): void
 {
@@ -14,7 +13,11 @@ if (isset($_GET['error'])) {
     redirect_with_oauth_error('Google sign-up was cancelled or could not be completed.');
 }
 
-if (!isset($_GET['code'], $_GET['state']) || !is_string($_GET['code']) || !is_string($_GET['state'])) {
+if (!isset($_GET['code'], $_GET['state'])
+    || !is_string($_GET['code'])
+    || !is_string($_GET['state'])
+    || $_GET['code'] === ''
+    || $_GET['state'] === '') {
     redirect_with_oauth_error('Google sign-up returned an invalid response.');
 }
 
@@ -41,11 +44,12 @@ try {
                 'grant_type' => 'authorization_code',
             ]),
             'ignore_errors' => true,
+            'timeout' => 15,
         ],
-    ]);
+    ], [$_GET['code'], $config['client_secret']]);
 
     if (!isset($tokenResponse['access_token'])) {
-        throw new RuntimeException('Google token response did not include an access token.');
+        throw new RuntimeException('Google token response was successful but did not include an access token.');
     }
 
     $profile = brainoverflow_google_request('https://openidconnect.googleapis.com/v1/userinfo', [
@@ -53,8 +57,9 @@ try {
             'method' => 'GET',
             'header' => 'Authorization: Bearer ' . $tokenResponse['access_token'] . "\r\nAccept: application/json\r\n",
             'ignore_errors' => true,
+            'timeout' => 15,
         ],
-    ]);
+    ], [$tokenResponse['access_token']]);
 
     if (($profile['email_verified'] ?? false) !== true || empty($profile['email'])) {
         redirect_with_oauth_error('Google did not return a verified email address.');
@@ -92,7 +97,7 @@ try {
     }
 
     unset($_SESSION['google_oauth_state'], $_SESSION['google_oauth_nonce']);
-    brainoverflow_google_login_user($user);
+    brainoverflow_login_user($user);
 
     header('Location: index.php');
     exit;

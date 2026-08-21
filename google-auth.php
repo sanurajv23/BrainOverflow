@@ -1,7 +1,6 @@
 <?php
-session_start();
-
 require __DIR__ . '/includes/google_oauth.php';
+brainoverflow_start_session();
 
 if (!brainoverflow_google_is_configured()) {
     $_SESSION['oauth_error'] = 'Google sign-up is not configured yet. Please add Google OAuth credentials and try again.';

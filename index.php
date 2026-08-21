@@ -1,5 +1,11 @@
 <?php
 // BrainOverflow - Home Page
+require_once __DIR__ . '/includes/auth.php';
+brainoverflow_start_session();
+
+$isLoggedIn = brainoverflow_is_logged_in();
+$currentUsername = brainoverflow_current_username();
+
 // Static sample data for blog posts (no database connection)
 $blogPosts = [
     [
@@ -80,14 +86,32 @@ $blogPosts = [
                     <li><a href="#">Explore</a></li>
                     <li><a href="#">Write</a></li>
                     <li><a href="#">About</a></li>
-                    <li class="nav-auth-mobile"><a href="#" class="btn btn-login">Login</a></li>
-                    <li class="nav-auth-mobile"><a href="#" class="btn btn-register">Register</a></li>
+                    <?php if ($isLoggedIn): ?>
+                    <li class="nav-auth-mobile"><a href="#" class="btn btn-login">Hi, <?php echo htmlspecialchars($currentUsername); ?></a></li>
+                    <li class="nav-auth-mobile">
+                        <form class="logout-form" method="POST" action="logout.php">
+                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(brainoverflow_csrf_token()); ?>">
+                            <button type="submit" class="btn btn-register">Logout</button>
+                        </form>
+                    </li>
+                    <?php else: ?>
+                    <li class="nav-auth-mobile"><a href="login.php" class="btn btn-login">Login</a></li>
+                    <li class="nav-auth-mobile"><a href="register.php" class="btn btn-register">Register</a></li>
+                    <?php endif; ?>
                 </ul>
             </nav>
 
             <div class="header-actions">
-                <a href="#" class="btn btn-login">Login</a>
-                <a href="#" class="btn btn-register">Register</a>
+                <?php if ($isLoggedIn): ?>
+                <span class="user-chip">Hi, <?php echo htmlspecialchars($currentUsername); ?></span>
+                <form class="logout-form" method="POST" action="logout.php">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(brainoverflow_csrf_token()); ?>">
+                    <button type="submit" class="btn btn-register">Logout</button>
+                </form>
+                <?php else: ?>
+                <a href="login.php" class="btn btn-login">Login</a>
+                <a href="register.php" class="btn btn-register">Register</a>
+                <?php endif; ?>
             </div>
 
             <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" onclick="document.getElementById('main-nav').classList.toggle('open')">
@@ -105,7 +129,7 @@ $blogPosts = [
                 <h1>Share Ideas.<br><span class="text-blue">Inspire</span> Minds.</h1>
                 <p>BrainOverflow is a space for curious minds to learn, share knowledge, and grow together.</p>
                 <div class="hero-buttons">
-                    <a href="#" class="btn btn-hero">
+                    <a href="<?php echo $isLoggedIn ? '#' : 'login.php'; ?>" class="btn btn-hero">
                         <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                         Start Writing
                     </a>

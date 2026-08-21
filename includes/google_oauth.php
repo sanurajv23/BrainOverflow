@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/auth.php';
+
 function brainoverflow_load_env(): void
 {
     static $loaded = false;
@@ -52,31 +54,64 @@ function brainoverflow_google_is_configured(): bool
     return $config['client_id'] !== '' && $config['client_secret'] !== '' && $config['redirect_uri'] !== '';
 }
 
-function brainoverflow_google_request(string $url, array $options = []): array
+function brainoverflow_google_safe_error(array $response, int $httpStatus, array $sensitiveValues = []): string
+{
+    $errorCode = isset($response['error']) && is_string($response['error'])
+        ? preg_replace('/[^a-zA-Z0-9_.-]/', '', $response['error'])
+        : 'unknown_error';
+    $description = isset($response['error_description']) && is_string($response['error_description'])
+        ? preg_replace('/[\x00-\x1F\x7F]+/', ' ', $response['error_description'])
+        : '';
+
+    foreach ($sensitiveValues as $sensitiveValue) {
+        if (is_string($sensitiveValue) && $sensitiveValue !== '') {
+            $description = str_replace($sensitiveValue, '[redacted]', $description);
+        }
+    }
+
+    $description = trim(preg_replace('/\s+/', ' ', $description));
+    $description = substr($description, 0, 300);
+    $statusText = $httpStatus > 0 ? 'HTTP ' . $httpStatus : 'HTTP status unavailable';
+
+    return 'Google OAuth request failed (' . $statusText . ', ' . ($errorCode ?: 'unknown_error') . ')'
+        . ($description !== '' ? ': ' . $description : '.');
+}
+
+function brainoverflow_google_request(string $url, array $options = [], array $sensitiveValues = []): array
 {
     $context = stream_context_create($options);
     $response = @file_get_contents($url, false, $context);
+    $httpStatus = 0;
+
+    foreach ($http_response_header ?? [] as $header) {
+        if (preg_match('/\AHTTP\/\S+\s+(\d{3})\b/', $header, $matches) === 1) {
+            $httpStatus = (int) $matches[1];
+        }
+    }
 
     if ($response === false) {
-        throw new RuntimeException('Google OAuth request failed.');
+        throw new RuntimeException(
+            'Google OAuth request failed ('
+            . ($httpStatus > 0 ? 'HTTP ' . $httpStatus : 'no HTTP response')
+            . ').'
+        );
     }
 
     $decoded = json_decode($response, true);
 
     if (!is_array($decoded)) {
-        throw new RuntimeException('Google OAuth returned an invalid response.');
+        throw new RuntimeException(
+            'Google OAuth returned an invalid JSON response ('
+            . ($httpStatus > 0 ? 'HTTP ' . $httpStatus : 'HTTP status unavailable')
+            . ').'
+        );
+    }
+
+    if ($httpStatus >= 400 || isset($decoded['error'])) {
+        throw new RuntimeException(brainoverflow_google_safe_error($decoded, $httpStatus, $sensitiveValues));
     }
 
     return $decoded;
-}
-
-function brainoverflow_google_login_user(array $user): void
-{
-    session_regenerate_id(true);
-    $_SESSION['user_id'] = $user['id'];
-    $_SESSION['username'] = $user['username'];
-    $_SESSION['email'] = $user['email'];
-    $_SESSION['role'] = $user['role'] ?? 'user';
 }
 
 function brainoverflow_google_unique_username(PDO $pdo, string $email, string $name = ''): string
