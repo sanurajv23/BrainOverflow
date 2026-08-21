@@ -7,7 +7,7 @@ BrainOverflow is a developer-focused blog application being built for the Univer
 ### Currently Implemented
 
 - BrainOverflow home page
-- Responsive dark navy developer-focused UI
+- Responsive butter-white developer-focused UI with a professional coral/orange accent
 - Navigation bar
 - Hero section
 - Featured blog posts section
@@ -36,6 +36,41 @@ BrainOverflow is a developer-focused blog application being built for the Univer
 - **Backend:** PHP
 - **Database:** MariaDB/MySQL
 - **Local Development:** XAMPP or PHP development server
+
+## Current Theme
+
+BrainOverflow currently uses a **Butter-white / Warm Off-White** website theme with a **Professional Coral / Orange** UI accent.
+
+### Core Color System
+
+| Role | Color |
+|---|---|
+| Main background (butter-white) | `#F8F7F2` |
+| Cards and surfaces | `#FFFDF8` |
+| Input background | `#FFFFFF` |
+| Primary text | `#20242A` |
+| Secondary text | `#64748B` |
+| Muted text | `#94A3B8` |
+| Borders | `#E2E8F0` |
+
+### Coral / Orange Accent
+
+| Accent shade | Color |
+|---|---|
+| Primary | `#F97316` |
+| Secondary | `#FB923C` |
+| Light | `#FDBA74` |
+| Very light | `#FFEDD5` |
+
+The accent palette is used for buttons, links, active and hover states, input focus states, small UI accents, card border glows, and the mouse-following glow trail.
+
+Major boxes and cards use a subtle, soft, professional warm coral/orange border glow. The effect is intentionally restrained and non-neon.
+
+The existing mouse-following comet/glow trail uses the coral/orange accent palette. Its movement, tail behavior, animation, and length are retained; only its theme color has changed.
+
+### BrainOverflow Branding
+
+The original BrainOverflow brain/code logo and symbol are retained without replacement or redesign. Its symbol and wordmark colors use the current coral/orange palette while preserving the existing shape, proportions, typography, and placement.
 
 ## Implemented Features
 
@@ -79,14 +114,14 @@ BrainOverflow is a developer-focused blog application being built for the Univer
 
 ### Registration UI
 
-- Dark navy developer-themed registration interface
+- Butter-white registration interface with warm coral/orange accents
 - Two-column authentication card
 - BrainOverflow branding
 - Welcome panel
 - Registration form panel
 - Rounded input fields
 - Responsive design for smaller screens
-- Light-blue glowing border around the main registration card
+- Subtle warm coral/orange border glow around the main registration card
 - Clean flat Login and Register buttons
 - Google sign-up button UI
 
@@ -169,7 +204,7 @@ ALTER TABLE users
 - Mouse-following glow/comet-tail effect
 - Normal browser cursor is preserved
 - Touch/mobile devices avoid unnecessary cursor trail elements
-- Subtle blue visual effects that match the BrainOverflow theme
+- Subtle coral/orange visual effects that match the current BrainOverflow theme
 
 ### Database
 

@@ -1,3 +1,53 @@
+// BrainOverflow - Theme toggle
+(function () {
+    'use strict';
+
+    var storageKey = 'theme';
+    var root = document.documentElement;
+
+    function getSavedTheme() {
+        try {
+            return localStorage.getItem(storageKey);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function saveTheme(theme) {
+        try {
+            localStorage.setItem(storageKey, theme);
+        } catch (error) {
+            // Theme still applies for the current page if storage is unavailable.
+        }
+    }
+
+    function applyTheme(theme) {
+        var normalizedTheme = theme === 'dark' ? 'dark' : 'light';
+        root.setAttribute('data-theme', normalizedTheme);
+
+        document.querySelectorAll('[data-theme-toggle]').forEach(function (button) {
+            var isDark = normalizedTheme === 'dark';
+            button.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+            button.setAttribute('title', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+            button.textContent = isDark ? '☀' : '☾';
+        });
+    }
+
+    applyTheme(getSavedTheme() || 'light');
+
+    document.addEventListener('click', function (event) {
+        var toggle = event.target.closest('[data-theme-toggle]');
+
+        if (!toggle) {
+            return;
+        }
+
+        var nextTheme = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(nextTheme);
+        saveTheme(nextTheme);
+    });
+})();
+
 // BrainOverflow - Soft mouse glow trail
 (function () {
     'use strict';

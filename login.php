@@ -61,6 +61,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        (function () {
+            try {
+                document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') === 'dark' ? 'dark' : 'light');
+            } catch (error) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Log in to BrainOverflow.">
@@ -74,10 +83,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             min-height: 100vh;
             overflow-x: hidden;
             background:
-                radial-gradient(ellipse at 18% 6%, rgba(59, 130, 246, 0.16) 0%, transparent 34%),
-                radial-gradient(ellipse at 82% 18%, rgba(6, 182, 212, 0.08) 0%, transparent 32%),
-                radial-gradient(ellipse at 50% 96%, rgba(96, 165, 250, 0.26) 0%, transparent 18%),
-                var(--color-bg);
+                radial-gradient(ellipse at 18% 6%, var(--accent-light) 0%, transparent 34%),
+                radial-gradient(ellipse at 82% 18%, rgba(251, 146, 60, 0.05) 0%, transparent 32%),
+                radial-gradient(ellipse at 50% 96%, rgba(253, 186, 116, 0.06) 0%, transparent 18%),
+                var(--bg);
         }
 
         .login-shell {
@@ -112,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .auth-back:hover {
-            color: #fff;
+            color: var(--color-primary-dark);
         }
 
         .auth-page {
@@ -132,10 +141,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             grid-template-columns: 0.95fr 1.05fr;
             min-height: 320px;
             overflow: hidden;
-            background: rgba(7, 11, 20, 0.72);
-            border: 1px solid rgba(96, 165, 250, 0.36);
+            background: var(--surface);
+            border: 1px solid rgba(249, 115, 22, 0.16);
             border-radius: 18px;
-            box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48), 0 0 44px rgba(59, 130, 246, 0.08);
+            box-shadow:
+                0 0 12px rgba(249, 115, 22, 0.08),
+                0 4px 20px var(--shadow);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
         }
@@ -152,9 +163,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             justify-content: center;
             text-align: center;
             background:
-                radial-gradient(ellipse at 50% 28%, rgba(37, 99, 235, 0.32) 0%, transparent 42%),
-                linear-gradient(135deg, rgba(8, 27, 69, 0.94), rgba(4, 12, 28, 0.96));
-            border-right: 1px solid rgba(96, 165, 250, 0.28);
+                radial-gradient(ellipse at 50% 28%, rgba(249, 115, 22, 0.10) 0%, transparent 44%),
+                linear-gradient(135deg, var(--accent-light), var(--surface));
+            border-right: 1px solid var(--border);
         }
 
         .auth-welcome::after {
@@ -165,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 56%;
             aspect-ratio: 1;
             border-radius: 50%;
-            background: rgba(37, 99, 235, 0.08);
+            background: rgba(249, 115, 22, 0.06);
             pointer-events: none;
         }
 
@@ -179,21 +190,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 60px;
             height: 60px;
             margin: 0 auto 14px;
-            color: var(--color-primary-light);
-            filter: drop-shadow(0 0 22px rgba(59, 130, 246, 0.45));
+            color: var(--color-primary);
+            filter: drop-shadow(0 6px 14px rgba(249, 115, 22, 0.10));
         }
 
         .welcome-content h1 {
-            color: #fff;
+            color: var(--text);
             font-size: 1.55rem;
-            line-height: 1.08;
+            line-height: 1.16;
+            font-weight: 650;
             margin-bottom: 8px;
-            text-shadow: 0 0 22px rgba(255, 255, 255, 0.08);
+            text-shadow: none;
         }
 
         .welcome-content p {
-            color: #c7d2fe;
+            color: var(--text-secondary);
             font-size: 0.9rem;
+            font-weight: 400;
             line-height: 1.65;
         }
 
@@ -211,11 +224,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .code-divider::after {
             content: '';
             height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.55));
+            background: linear-gradient(90deg, transparent, rgba(249, 115, 22, 0.28));
         }
 
         .code-divider::after {
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.55), transparent);
+            background: linear-gradient(90deg, rgba(249, 115, 22, 0.28), transparent);
         }
 
         .welcome-login {
@@ -235,15 +248,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             gap: 10px;
             min-width: 190px;
             padding: 13px 20px;
-            color: #eaf6ff;
-            background: rgba(14, 165, 233, 0.08);
-            border: 1px solid rgba(14, 165, 233, 0.72);
-            border-radius: 10px;
+            color: #ffffff;
+            background: var(--color-primary);
+            border: none;
+            border-radius: 8px;
             font-size: 1rem;
             font-weight: 800;
             box-shadow:
-                0 0 18px rgba(14, 165, 233, 0.18),
-                0 0 34px rgba(59, 130, 246, 0.10);
+                0 4px 12px rgba(249, 115, 22, 0.18);
             overflow: hidden;
             transition: background var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
         }
@@ -258,26 +270,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .auth-side-btn:hover {
-            color: #fff;
-            background: rgba(14, 165, 233, 0.13);
-            border-color: rgba(56, 189, 248, 1);
+            color: #ffffff;
+            background: var(--color-primary-dark);
+            border-color: var(--color-primary-dark);
             box-shadow:
-                0 0 22px rgba(14, 165, 233, 0.28),
-                0 0 42px rgba(59, 130, 246, 0.14);
+                0 4px 12px rgba(249, 115, 22, 0.18);
         }
 
         .auth-side-btn:active {
-            background: rgba(14, 165, 233, 0.10);
+            background: var(--color-primary-dark);
             box-shadow:
-                0 0 14px rgba(14, 165, 233, 0.20),
-                0 0 28px rgba(59, 130, 246, 0.10);
+                0 4px 12px rgba(249, 115, 22, 0.18);
         }
 
         .auth-form-panel {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(5, 12, 26, 0.78);
+            background: var(--surface);
         }
 
         .auth-form-inner {
@@ -291,15 +301,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .auth-header h1 {
-            color: #fff;
+            color: var(--text);
             font-size: 1.5rem;
             line-height: 1.16;
+            font-weight: 650;
             margin-bottom: 8px;
         }
 
         .auth-header p {
-            color: #aebbd2;
+            color: var(--text-secondary);
             font-size: 1rem;
+            font-weight: 400;
         }
 
         .form-group {
@@ -322,7 +334,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             left: 22px;
             width: 22px;
             height: 22px;
-            color: #82a0cb;
+            color: var(--color-primary);
             transform: translateY(-50%);
             pointer-events: none;
         }
@@ -331,10 +343,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 100%;
             min-height: 40px;
             padding: 10px 14px 10px 48px;
-            color: #fff;
-            background: rgba(8, 18, 36, 0.72);
-            border: 1px solid rgba(96, 165, 250, 0.25);
-            border-radius: 9px;
+            color: var(--color-text);
+            background: var(--input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
             font: inherit;
             font-size: 1rem;
             outline: none;
@@ -342,13 +354,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .form-control::placeholder {
-            color: #8ea1bd;
+            color: var(--muted);
         }
 
         .form-control:focus {
-            border-color: var(--color-primary);
-            background: rgba(9, 22, 45, 0.9);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14), 0 0 24px rgba(59, 130, 246, 0.12);
+            border-color: var(--accent);
+            background: var(--input);
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.10);
         }
 
         .forgot-link {
@@ -364,7 +376,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .forgot-link a:hover {
-            color: #fff;
+            color: var(--color-primary-dark);
         }
 
         button.auth-submit {
@@ -373,16 +385,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             justify-content: center;
             min-height: 40px;
             margin-top: 0;
-            border-radius: 9px;
-            border: 1px solid rgba(14, 165, 233, 0.72);
-            color: #eaf6ff;
-            background: rgba(14, 165, 233, 0.08);
+            border-radius: 8px;
+            border: none;
+            color: #ffffff;
+            background: var(--color-primary);
             font-size: 1rem;
             font-weight: 800;
             text-shadow: none;
             box-shadow:
-                0 0 18px rgba(14, 165, 233, 0.18),
-                0 0 34px rgba(59, 130, 246, 0.10);
+                0 4px 12px rgba(249, 115, 22, 0.18);
             transform: translateY(0);
             transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, color 0.2s ease;
         }
@@ -392,21 +403,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         button.auth-submit:hover {
-            color: #fff;
-            background: rgba(14, 165, 233, 0.13);
-            border-color: rgba(56, 189, 248, 1);
+            color: #ffffff;
+            background: var(--color-primary-dark);
+            border-color: var(--color-primary-dark);
             transform: translateY(0);
             box-shadow:
-                0 0 22px rgba(14, 165, 233, 0.28),
-                0 0 42px rgba(59, 130, 246, 0.14);
+                0 4px 12px rgba(249, 115, 22, 0.18);
         }
 
         button.auth-submit:active {
             transform: translateY(0);
-            background: rgba(14, 165, 233, 0.10);
+            background: var(--color-primary-dark);
             box-shadow:
-                0 0 14px rgba(14, 165, 233, 0.20),
-                0 0 28px rgba(59, 130, 246, 0.10);
+                0 4px 12px rgba(249, 115, 22, 0.18);
         }
 
         .auth-divider {
@@ -415,7 +424,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             align-items: center;
             gap: 18px;
             margin: 14px 0 12px;
-            color: #aebbd2;
+            color: var(--color-text-light);
             font-size: 0.95rem;
         }
 
@@ -423,7 +432,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .auth-divider::after {
             content: '';
             height: 1px;
-            background: rgba(148, 163, 184, 0.24);
+            background: var(--border);
         }
 
         .google-placeholder {
@@ -434,8 +443,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 100%;
             min-height: 36px;
             color: var(--color-text);
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: var(--input);
+            border: 1px solid var(--border);
             border-radius: 9px;
             font: inherit;
             font-weight: 700;
@@ -449,8 +458,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            color: #fff;
-            background: conic-gradient(from -45deg, #4285f4 0 25%, #34a853 0 50%, #fbbc05 0 75%, #ea4335 0 100%);
+            color: #ffffff;
+            background: var(--accent);
             font-size: 0.82rem;
             font-weight: 800;
             line-height: 1;
@@ -490,13 +499,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .auth-bottom a:hover {
-            color: #fff;
+            color: var(--color-primary-dark);
         }
 
         .auth-footer {
             margin-top: 20px;
             text-align: center;
-            color: #9fb0cc;
+            color: var(--color-text-muted);
         }
 
         .auth-footer a {
@@ -517,7 +526,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             .auth-welcome {
                 min-height: 360px;
                 border-right: none;
-                border-bottom: 1px solid rgba(96, 165, 250, 0.28);
+                border-bottom: 1px solid var(--border);
             }
 
             .auth-welcome,
@@ -570,11 +579,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             .welcome-content h1 {
-                font-size: 2rem;
+                font-size: 1.85rem;
             }
 
             .auth-header h1 {
-                font-size: 1.65rem;
+                font-size: 1.5rem;
             }
 
             .form-control {
@@ -593,23 +602,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <header class="container auth-topbar">
             <a href="index.php" class="logo">
                 <svg class="logo-svg" width="36" height="36" viewBox="0 0 36 36" fill="none">
-                    <circle cx="18" cy="10" r="2.2" fill="#3b82f6"/>
-                    <circle cx="11" cy="15" r="2" fill="#60a5fa"/>
-                    <circle cx="25" cy="15" r="2" fill="#8b5cf6"/>
-                    <circle cx="9" cy="22" r="1.8" fill="#06b6d4"/>
-                    <circle cx="18" cy="19" r="2.2" fill="#3b82f6"/>
-                    <circle cx="27" cy="22" r="1.8" fill="#06b6d4"/>
-                    <circle cx="13" cy="27" r="1.6" fill="#8b5cf6"/>
-                    <circle cx="23" cy="27" r="1.6" fill="#60a5fa"/>
-                    <line x1="18" y1="10" x2="11" y2="15" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="18" y1="10" x2="25" y2="15" stroke="#8b5cf6" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="11" y1="15" x2="18" y2="19" stroke="#60a5fa" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="25" y1="15" x2="18" y2="19" stroke="#8b5cf6" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="11" y1="15" x2="9" y2="22" stroke="#06b6d4" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="25" y1="15" x2="27" y2="22" stroke="#06b6d4" stroke-width="0.8" opacity="0.5"/>
+                    <circle cx="18" cy="10" r="2.2" fill="#F97316"/>
+                    <circle cx="11" cy="15" r="2" fill="#FB923C"/>
+                    <circle cx="25" cy="15" r="2" fill="#FDBA74"/>
+                    <circle cx="9" cy="22" r="1.8" fill="#FB923C"/>
+                    <circle cx="18" cy="19" r="2.2" fill="#F97316"/>
+                    <circle cx="27" cy="22" r="1.8" fill="#FB923C"/>
+                    <circle cx="13" cy="27" r="1.6" fill="#FDBA74"/>
+                    <circle cx="23" cy="27" r="1.6" fill="#FB923C"/>
+                    <line x1="18" y1="10" x2="11" y2="15" stroke="#F97316" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="18" y1="10" x2="25" y2="15" stroke="#FDBA74" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="11" y1="15" x2="18" y2="19" stroke="#FB923C" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="25" y1="15" x2="18" y2="19" stroke="#FDBA74" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="11" y1="15" x2="9" y2="22" stroke="#FB923C" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="25" y1="15" x2="27" y2="22" stroke="#FB923C" stroke-width="0.8" opacity="0.5"/>
                 </svg>
                 <span class="logo-text"><span class="logo-brain">Brain</span><span class="logo-overflow">Overflow</span></span>
             </a>
+
+            <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" title="Switch to dark theme">☾</button>
 
             <a href="index.php" class="auth-back">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -630,8 +641,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <path d="M30 18C20 18 16 25 16 34V43C16 50 10 52 10 60C10 68 16 70 16 77V86C16 95 20 102 30 102" stroke="currentColor" stroke-width="10" stroke-linecap="round"/>
                                     <path d="M90 18C100 18 104 25 104 34V43C104 50 110 52 110 60C110 68 104 70 104 77V86C104 95 100 102 90 102" stroke="currentColor" stroke-width="10" stroke-linecap="round"/>
                                     <path d="M60 34V86" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.75"/>
-                                    <path d="M50 38C40 38 35 44 35 53C28 55 26 64 32 70C31 78 38 84 47 82C51 87 58 85 60 78" stroke="#93c5fd" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M70 38C80 38 85 44 85 53C92 55 94 64 88 70C89 78 82 84 73 82C69 87 62 85 60 78" stroke="#93c5fd" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M50 38C40 38 35 44 35 53C28 55 26 64 32 70C31 78 38 84 47 82C51 87 58 85 60 78" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.58"/>
+                                    <path d="M70 38C80 38 85 44 85 53C92 55 94 64 88 70C89 78 82 84 73 82C69 87 62 85 60 78" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.58"/>
                                 </svg>
                                 <h1>Hello, Welcome!</h1>
                                 <p>Don't have an account?</p>

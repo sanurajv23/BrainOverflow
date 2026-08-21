@@ -40,6 +40,15 @@ $blogPosts = [
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        (function () {
+            try {
+                document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') === 'dark' ? 'dark' : 'light');
+            } catch (error) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="BrainOverflow — A modern blogging platform to share your knowledge, ideas, and insights with the world.">
@@ -56,26 +65,26 @@ $blogPosts = [
         <div class="container header-inner">
             <a href="index.php" class="logo">
                 <svg class="logo-svg" width="36" height="36" viewBox="0 0 36 36" fill="none">
-                    <circle cx="18" cy="10" r="2.2" fill="#3b82f6"/>
-                    <circle cx="11" cy="15" r="2" fill="#60a5fa"/>
-                    <circle cx="25" cy="15" r="2" fill="#8b5cf6"/>
-                    <circle cx="9" cy="22" r="1.8" fill="#06b6d4"/>
-                    <circle cx="18" cy="19" r="2.2" fill="#3b82f6"/>
-                    <circle cx="27" cy="22" r="1.8" fill="#06b6d4"/>
-                    <circle cx="13" cy="27" r="1.6" fill="#8b5cf6"/>
-                    <circle cx="23" cy="27" r="1.6" fill="#60a5fa"/>
-                    <line x1="18" y1="10" x2="11" y2="15" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="18" y1="10" x2="25" y2="15" stroke="#8b5cf6" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="11" y1="15" x2="18" y2="19" stroke="#60a5fa" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="25" y1="15" x2="18" y2="19" stroke="#8b5cf6" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="11" y1="15" x2="9" y2="22" stroke="#06b6d4" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="25" y1="15" x2="27" y2="22" stroke="#06b6d4" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="9" y1="22" x2="13" y2="27" stroke="#8b5cf6" stroke-width="0.8" opacity="0.4"/>
-                    <line x1="18" y1="19" x2="13" y2="27" stroke="#3b82f6" stroke-width="0.8" opacity="0.4"/>
-                    <line x1="18" y1="19" x2="23" y2="27" stroke="#60a5fa" stroke-width="0.8" opacity="0.4"/>
-                    <line x1="27" y1="22" x2="23" y2="27" stroke="#06b6d4" stroke-width="0.8" opacity="0.4"/>
-                    <line x1="9" y1="22" x2="18" y2="19" stroke="#06b6d4" stroke-width="0.8" opacity="0.3"/>
-                    <line x1="27" y1="22" x2="18" y2="19" stroke="#06b6d4" stroke-width="0.8" opacity="0.3"/>
+                    <circle cx="18" cy="10" r="2.2" fill="#F97316"/>
+                    <circle cx="11" cy="15" r="2" fill="#FB923C"/>
+                    <circle cx="25" cy="15" r="2" fill="#FDBA74"/>
+                    <circle cx="9" cy="22" r="1.8" fill="#FB923C"/>
+                    <circle cx="18" cy="19" r="2.2" fill="#F97316"/>
+                    <circle cx="27" cy="22" r="1.8" fill="#FB923C"/>
+                    <circle cx="13" cy="27" r="1.6" fill="#FDBA74"/>
+                    <circle cx="23" cy="27" r="1.6" fill="#FB923C"/>
+                    <line x1="18" y1="10" x2="11" y2="15" stroke="#F97316" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="18" y1="10" x2="25" y2="15" stroke="#FDBA74" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="11" y1="15" x2="18" y2="19" stroke="#FB923C" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="25" y1="15" x2="18" y2="19" stroke="#FDBA74" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="11" y1="15" x2="9" y2="22" stroke="#FB923C" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="25" y1="15" x2="27" y2="22" stroke="#FB923C" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="9" y1="22" x2="13" y2="27" stroke="#FDBA74" stroke-width="0.8" opacity="0.4"/>
+                    <line x1="18" y1="19" x2="13" y2="27" stroke="#F97316" stroke-width="0.8" opacity="0.4"/>
+                    <line x1="18" y1="19" x2="23" y2="27" stroke="#FB923C" stroke-width="0.8" opacity="0.4"/>
+                    <line x1="27" y1="22" x2="23" y2="27" stroke="#FB923C" stroke-width="0.8" opacity="0.4"/>
+                    <line x1="9" y1="22" x2="18" y2="19" stroke="#FB923C" stroke-width="0.8" opacity="0.3"/>
+                    <line x1="27" y1="22" x2="18" y2="19" stroke="#FB923C" stroke-width="0.8" opacity="0.3"/>
                 </svg>
                 <span class="logo-text"><span class="logo-brain">Brain</span><span class="logo-overflow">Overflow</span></span>
             </a>
@@ -102,6 +111,7 @@ $blogPosts = [
             </nav>
 
             <div class="header-actions">
+                <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" title="Switch to dark theme">☾</button>
                 <?php if ($isLoggedIn): ?>
                 <span class="user-chip">Hi, <?php echo htmlspecialchars($currentUsername); ?></span>
                 <form class="logout-form" method="POST" action="logout.php">
@@ -144,7 +154,7 @@ $blogPosts = [
                     <div class="laptop-screen">
                         <div class="screen-dots">
                             <span class="dot dot-red"></span>
-                            <span class="dot dot-yellow"></span>
+                            <span class="dot dot-blue"></span>
                             <span class="dot dot-green"></span>
                         </div>
                         <div class="screen-code">
@@ -235,16 +245,16 @@ $blogPosts = [
         <div class="container footer-inner">
             <div class="footer-brand">
                 <svg class="footer-logo-svg" width="22" height="22" viewBox="0 0 36 36" fill="none">
-                    <circle cx="18" cy="10" r="2.2" fill="#3b82f6"/>
-                    <circle cx="11" cy="15" r="2" fill="#60a5fa"/>
-                    <circle cx="25" cy="15" r="2" fill="#8b5cf6"/>
-                    <circle cx="18" cy="19" r="2.2" fill="#3b82f6"/>
-                    <circle cx="13" cy="27" r="1.6" fill="#8b5cf6"/>
-                    <circle cx="23" cy="27" r="1.6" fill="#60a5fa"/>
-                    <line x1="18" y1="10" x2="11" y2="15" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="18" y1="10" x2="25" y2="15" stroke="#8b5cf6" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="11" y1="15" x2="18" y2="19" stroke="#60a5fa" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="25" y1="15" x2="18" y2="19" stroke="#8b5cf6" stroke-width="0.8" opacity="0.5"/>
+                    <circle cx="18" cy="10" r="2.2" fill="#F97316"/>
+                    <circle cx="11" cy="15" r="2" fill="#FB923C"/>
+                    <circle cx="25" cy="15" r="2" fill="#FDBA74"/>
+                    <circle cx="18" cy="19" r="2.2" fill="#F97316"/>
+                    <circle cx="13" cy="27" r="1.6" fill="#FDBA74"/>
+                    <circle cx="23" cy="27" r="1.6" fill="#FB923C"/>
+                    <line x1="18" y1="10" x2="11" y2="15" stroke="#F97316" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="18" y1="10" x2="25" y2="15" stroke="#FDBA74" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="11" y1="15" x2="18" y2="19" stroke="#FB923C" stroke-width="0.8" opacity="0.5"/>
+                    <line x1="25" y1="15" x2="18" y2="19" stroke="#FDBA74" stroke-width="0.8" opacity="0.5"/>
                 </svg>
                 <span>Brain<span class="text-blue">Overflow</span></span>
             </div>
