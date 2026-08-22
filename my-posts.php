@@ -2,49 +2,32 @@
 require_once __DIR__ . '/includes/auth.php';
 brainoverflow_start_session();
 
-$isLoggedIn = brainoverflow_is_logged_in();
+if (!brainoverflow_is_logged_in()) {
+    header('Location: login.php');
+    exit;
+}
+
 $currentUsername = brainoverflow_current_username();
 $blogPosts = [];
 $postsLoadFailed = false;
-$searchTerm = is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
-$hasSearch = $searchTerm !== '';
 
 try {
     require __DIR__ . '/config/database.php';
 
-    $postsSql =
-        'SELECT blogpost.id, blogpost.title, blogpost.content, blogpost.created_at,
-                users.username AS author_username
+    $postsQuery = $pdo->prepare(
+        'SELECT id, title, content, created_at
          FROM blogpost
-         INNER JOIN users ON users.id = blogpost.user_id';
-
-    if ($hasSearch) {
-        $postsSql .=
-            " WHERE (blogpost.title LIKE :title_term ESCAPE '!'
-                     OR blogpost.content LIKE :content_term ESCAPE '!')";
-    }
-
-    $postsSql .= ' ORDER BY blogpost.created_at DESC, blogpost.id DESC';
-    $postsQuery = $pdo->prepare($postsSql);
-
-    if ($hasSearch) {
-        $escapedSearchTerm = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $searchTerm);
-        $likeSearchTerm = '%' . $escapedSearchTerm . '%';
-        $postsQuery->execute([
-            'title_term' => $likeSearchTerm,
-            'content_term' => $likeSearchTerm,
-        ]);
-    } else {
-        $postsQuery->execute();
-    }
-
+         WHERE user_id = :user_id
+         ORDER BY created_at DESC, id DESC'
+    );
+    $postsQuery->execute(['user_id' => $_SESSION['user_id']]);
     $blogPosts = $postsQuery->fetchAll();
 } catch (Throwable $error) {
-    error_log('BrainOverflow explore posts error: ' . $error->getMessage());
+    error_log('BrainOverflow my posts error: ' . $error->getMessage());
     $postsLoadFailed = true;
 }
 
-function brainoverflow_explore_excerpt(string $content, int $maximumLength = 170): string
+function brainoverflow_my_posts_excerpt(string $content, int $maximumLength = 170): string
 {
     $normalizedContent = preg_replace('/\s+/u', ' ', trim($content)) ?? trim($content);
     $contentLength = function_exists('mb_strlen') ? mb_strlen($normalizedContent, 'UTF-8') : strlen($normalizedContent);
@@ -58,13 +41,6 @@ function brainoverflow_explore_excerpt(string $content, int $maximumLength = 170
         : substr($normalizedContent, 0, $maximumLength - 1);
 
     return rtrim($excerpt) . '…';
-}
-
-function brainoverflow_explore_initials(string $username): string
-{
-    $initials = function_exists('mb_substr') ? mb_substr($username, 0, 2, 'UTF-8') : substr($username, 0, 2);
-
-    return function_exists('mb_strtoupper') ? mb_strtoupper($initials, 'UTF-8') : strtoupper($initials);
 }
 ?>
 <!DOCTYPE html>
@@ -81,24 +57,23 @@ function brainoverflow_explore_initials(string $username): string
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Explore blog posts from the BrainOverflow community.">
-    <title>Explore - BrainOverflow</title>
+    <meta name="description" content="Manage your BrainOverflow blog posts.">
+    <title>My Posts - BrainOverflow</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <style>
-        .explore-hero { padding: 64px 0 8px; text-align: center; }
-        .explore-hero h1 { margin-bottom: 12px; font-size: clamp(2rem, 5vw, 3.25rem); }
-        .explore-hero p { max-width: 620px; margin: 0 auto; color: var(--color-text-light); }
-        .explore-posts { padding-top: 38px; }
-        .explore-posts .blog-card h3 a:hover { color: var(--color-primary-dark); }
-        .explore-search { display: flex; width: min(680px, 100%); margin: 30px auto 0; padding: 7px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-full); box-shadow: var(--shadow-sm); }
-        .explore-search:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--accent-light); }
-        .explore-search input { flex: 1; min-width: 0; padding: 10px 16px; color: var(--color-text); background: transparent; border: 0; outline: 0; font: inherit; }
-        .explore-search .btn { flex: 0 0 auto; }
-        .search-summary { color: var(--color-text-light); font-size: 0.95rem; }
-        @media (max-width: 520px) { .explore-search { border-radius: var(--radius-md); } .explore-search .btn { padding-inline: 16px; } }
+        .my-posts-hero { padding: 64px 0 8px; text-align: center; }
+        .my-posts-hero h1 { margin-bottom: 12px; font-size: clamp(2rem, 5vw, 3.25rem); }
+        .my-posts-hero p { max-width: 620px; margin: 0 auto; color: var(--color-text-light); }
+        .my-posts-list { padding-top: 38px; }
+        .my-posts-list .blog-card h3 a:hover { color: var(--color-primary-dark); }
+        .my-post-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--color-border); }
+        .my-post-actions form { margin: 0; }
+        .my-post-actions .btn { padding: 8px 14px; font-size: 0.86rem; }
+        .btn-delete { color: #b91c1c; background: transparent; border: 1px solid #ef4444; }
+        .btn-delete:hover { color: #fff; background: #dc2626; }
     </style>
 </head>
 <body>
@@ -112,14 +87,10 @@ function brainoverflow_explore_initials(string $username): string
                     <circle cx="9" cy="22" r="1.8" fill="#FB923C"/>
                     <circle cx="18" cy="19" r="2.2" fill="#F97316"/>
                     <circle cx="27" cy="22" r="1.8" fill="#FB923C"/>
-                    <circle cx="13" cy="27" r="1.6" fill="#FDBA74"/>
-                    <circle cx="23" cy="27" r="1.6" fill="#FB923C"/>
                     <line x1="18" y1="10" x2="11" y2="15" stroke="#F97316" stroke-width="0.8" opacity="0.5"/>
                     <line x1="18" y1="10" x2="25" y2="15" stroke="#FDBA74" stroke-width="0.8" opacity="0.5"/>
                     <line x1="11" y1="15" x2="18" y2="19" stroke="#FB923C" stroke-width="0.8" opacity="0.5"/>
                     <line x1="25" y1="15" x2="18" y2="19" stroke="#FDBA74" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="11" y1="15" x2="9" y2="22" stroke="#FB923C" stroke-width="0.8" opacity="0.5"/>
-                    <line x1="25" y1="15" x2="27" y2="22" stroke="#FB923C" stroke-width="0.8" opacity="0.5"/>
                 </svg>
                 <span class="logo-text"><span class="logo-brain">Brain</span><span class="logo-overflow">Overflow</span></span>
             </a>
@@ -127,14 +98,11 @@ function brainoverflow_explore_initials(string $username): string
             <nav class="main-nav" id="main-nav">
                 <ul>
                     <li><a href="index.php">Home</a></li>
-                    <li><a href="explore.php" class="active">Explore</a></li>
-                    <li><a href="<?php echo $isLoggedIn ? 'create-post.php' : 'login.php'; ?>">Write</a></li>
-                    <?php if ($isLoggedIn): ?>
-                    <li><a href="my-posts.php">My Posts</a></li>
+                    <li><a href="explore.php">Explore</a></li>
+                    <li><a href="create-post.php">Write</a></li>
+                    <li><a href="my-posts.php" class="active">My Posts</a></li>
                     <li><a href="profile.php">Profile</a></li>
-                    <?php endif; ?>
                     <li><a href="#">About</a></li>
-                    <?php if ($isLoggedIn): ?>
                     <li class="nav-auth-mobile"><span class="btn btn-login">Hi, <?php echo htmlspecialchars($currentUsername, ENT_QUOTES, 'UTF-8'); ?></span></li>
                     <li class="nav-auth-mobile">
                         <form class="logout-form" method="POST" action="logout.php">
@@ -142,25 +110,16 @@ function brainoverflow_explore_initials(string $username): string
                             <button type="submit" class="btn btn-register">Logout</button>
                         </form>
                     </li>
-                    <?php else: ?>
-                    <li class="nav-auth-mobile"><a href="login.php" class="btn btn-login">Login</a></li>
-                    <li class="nav-auth-mobile"><a href="register.php" class="btn btn-register">Register</a></li>
-                    <?php endif; ?>
                 </ul>
             </nav>
 
             <div class="header-actions">
                 <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" title="Switch to dark theme">&#9790;</button>
-                <?php if ($isLoggedIn): ?>
                 <span class="user-chip">Hi, <?php echo htmlspecialchars($currentUsername, ENT_QUOTES, 'UTF-8'); ?></span>
                 <form class="logout-form" method="POST" action="logout.php">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(brainoverflow_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                     <button type="submit" class="btn btn-register">Logout</button>
                 </form>
-                <?php else: ?>
-                <a href="login.php" class="btn btn-login">Login</a>
-                <a href="register.php" class="btn btn-register">Register</a>
-                <?php endif; ?>
             </div>
 
             <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" onclick="document.getElementById('main-nav').classList.toggle('open')">
@@ -170,54 +129,45 @@ function brainoverflow_explore_initials(string $username): string
     </header>
 
     <main>
-        <section class="explore-hero">
+        <section class="my-posts-hero">
             <div class="container">
-                <h1>Explore Blogs</h1>
-                <p>Discover ideas, lessons, and stories shared by the BrainOverflow community.</p>
-                <form class="explore-search" method="GET" action="explore.php" role="search">
-                    <input type="search" name="q" aria-label="Search blog posts" placeholder="Search titles and content" value="<?php echo htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8'); ?>">
-                    <button class="btn btn-hero" type="submit">Search</button>
-                </form>
+                <h1>My Posts</h1>
+                <p>View and manage the posts you have shared with the BrainOverflow community.</p>
             </div>
         </section>
 
-        <section class="featured-posts explore-posts">
+        <section class="featured-posts my-posts-list">
             <div class="container">
                 <div class="section-header">
-                    <h2><span class="section-bar"></span><?php echo $hasSearch ? 'Search Results' : 'All Posts'; ?></h2>
-                    <?php if ($hasSearch && !$postsLoadFailed): ?>
-                    <span class="search-summary"><?php echo count($blogPosts); ?> result<?php echo count($blogPosts) === 1 ? '' : 's'; ?></span>
-                    <?php endif; ?>
+                    <h2><span class="section-bar"></span>Your Posts</h2>
+                    <a class="btn btn-hero" href="create-post.php">Create post</a>
                 </div>
 
                 <div class="blog-grid">
                     <?php if (empty($blogPosts)): ?>
                     <div class="posts-empty">
-                        <h3><?php echo $postsLoadFailed ? 'Posts are temporarily unavailable' : ($hasSearch ? 'No results found' : 'No posts yet'); ?></h3>
-                        <p>
-                            <?php if ($postsLoadFailed): ?>
-                                Please try again later.
-                            <?php elseif ($hasSearch): ?>
-                                No posts matched “<?php echo htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8'); ?>”. Try a different search.
-                            <?php else: ?>
-                                Be the first to share something with the community.
-                            <?php endif; ?>
-                        </p>
+                        <h3><?php echo $postsLoadFailed ? 'Posts are temporarily unavailable' : 'You have not written any posts yet'; ?></h3>
+                        <p><?php echo $postsLoadFailed ? 'Please try again later.' : 'Create your first post and share it with the community.'; ?></p>
                     </div>
                     <?php else: ?>
                     <?php foreach ($blogPosts as $post): ?>
                     <article class="blog-card">
                         <div class="card-thumb thumb-php"></div>
                         <div class="card-body">
-                            <span class="card-category cat-php">Community</span>
+                            <span class="card-category cat-php">Your post</span>
                             <h3><a href="post.php?id=<?php echo rawurlencode((string) $post['id']); ?>"><?php echo htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8'); ?></a></h3>
-                            <p class="card-excerpt"><?php echo htmlspecialchars(brainoverflow_explore_excerpt($post['content']), ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="card-excerpt"><?php echo htmlspecialchars(brainoverflow_my_posts_excerpt($post['content']), ENT_QUOTES, 'UTF-8'); ?></p>
                             <div class="card-meta">
-                                <div class="meta-author">
-                                    <div class="author-avatar av-php"><?php echo htmlspecialchars(brainoverflow_explore_initials($post['author_username']), ENT_QUOTES, 'UTF-8'); ?></div>
-                                    <span class="author-name"><?php echo htmlspecialchars($post['author_username'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                </div>
                                 <span class="post-date"><?php echo htmlspecialchars(date('F j, Y', strtotime($post['created_at'])), ENT_QUOTES, 'UTF-8'); ?></span>
+                            </div>
+                            <div class="my-post-actions">
+                                <a class="btn btn-outline" href="post.php?id=<?php echo rawurlencode((string) $post['id']); ?>">View</a>
+                                <a class="btn btn-hero" href="edit-post.php?id=<?php echo rawurlencode((string) $post['id']); ?>">Edit</a>
+                                <form method="POST" action="delete-post.php" onsubmit="return window.confirm('Delete this post permanently? This action cannot be undone.');">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(brainoverflow_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+                                    <input type="hidden" name="id" value="<?php echo htmlspecialchars((string) $post['id'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <button class="btn btn-delete" type="submit">Delete</button>
+                                </form>
                             </div>
                         </div>
                     </article>

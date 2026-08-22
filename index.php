@@ -108,6 +108,10 @@ function brainoverflow_author_initials(string $username): string
                     <li><a href="index.php" class="active">Home</a></li>
                     <li><a href="explore.php">Explore</a></li>
                     <li><a href="<?php echo $isLoggedIn ? 'create-post.php' : 'login.php'; ?>">Write</a></li>
+                    <?php if ($isLoggedIn): ?>
+                    <li><a href="my-posts.php">My Posts</a></li>
+                    <li><a href="profile.php">Profile</a></li>
+                    <?php endif; ?>
                     <li><a href="#">About</a></li>
                     <?php if ($isLoggedIn): ?>
                     <li class="nav-auth-mobile"><a href="#" class="btn btn-login">Hi, <?php echo htmlspecialchars($currentUsername); ?></a></li>
