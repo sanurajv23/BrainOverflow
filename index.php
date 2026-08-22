@@ -5,37 +5,51 @@ brainoverflow_start_session();
 
 $isLoggedIn = brainoverflow_is_logged_in();
 $currentUsername = brainoverflow_current_username();
+$postDeleted = isset($_GET['deleted']) && $_GET['deleted'] === '1';
 
-// Static sample data for blog posts (no database connection)
-$blogPosts = [
-    [
-        'title'    => 'Getting Started with PHP 8: New Features You Should Know',
-        'excerpt'  => 'Explore the powerful new features in PHP 8, including named arguments, union types, and the match expression that make your code cleaner and more expressive.',
-        'author'   => 'Sarah Chen',
-        'initials' => 'SC',
-        'date'     => 'August 12, 2026',
-        'category' => 'PHP',
-        'thumb_label' => 'php',
-    ],
-    [
-        'title'    => 'Building RESTful APIs: A Practical Guide',
-        'excerpt'  => 'Learn the fundamentals of designing and implementing RESTful APIs with proper authentication, versioning, and error handling strategies.',
-        'author'   => 'James Rivera',
-        'initials' => 'JR',
-        'date'     => 'August 10, 2026',
-        'category' => 'Backend',
-        'thumb_label' => 'API',
-    ],
-    [
-        'title'    => 'CSS Grid vs Flexbox: When to Use Which',
-        'excerpt'  => 'A deep dive into the differences between CSS Grid and Flexbox, with practical examples to help you choose the right layout tool for every situation.',
-        'author'   => 'Anika Patel',
-        'initials' => 'AP',
-        'date'     => 'August 8, 2026',
-        'category' => 'CSS',
-        'thumb_label' => 'CSS',
-    ],
-];
+$blogPosts = [];
+$postsLoadFailed = false;
+
+try {
+    require __DIR__ . '/config/database.php';
+
+    $postsQuery = $pdo->query(
+        'SELECT blogpost.id, blogpost.title, blogpost.content, blogpost.created_at,
+                users.username AS author_username
+         FROM blogpost
+         INNER JOIN users ON users.id = blogpost.user_id
+         ORDER BY blogpost.created_at DESC, blogpost.id DESC'
+    );
+    $blogPosts = $postsQuery->fetchAll();
+} catch (Throwable $error) {
+    error_log('BrainOverflow homepage posts error: ' . $error->getMessage());
+    $postsLoadFailed = true;
+}
+
+$featuredPosts = array_slice($blogPosts, 0, 3);
+
+function brainoverflow_post_excerpt(string $content, int $maximumLength = 170): string
+{
+    $normalizedContent = preg_replace('/\s+/u', ' ', trim($content)) ?? trim($content);
+    $contentLength = function_exists('mb_strlen') ? mb_strlen($normalizedContent, 'UTF-8') : strlen($normalizedContent);
+
+    if ($contentLength <= $maximumLength) {
+        return $normalizedContent;
+    }
+
+    $excerpt = function_exists('mb_substr')
+        ? mb_substr($normalizedContent, 0, $maximumLength - 1, 'UTF-8')
+        : substr($normalizedContent, 0, $maximumLength - 1);
+
+    return rtrim($excerpt) . '…';
+}
+
+function brainoverflow_author_initials(string $username): string
+{
+    $initials = function_exists('mb_substr') ? mb_substr($username, 0, 2, 'UTF-8') : substr($username, 0, 2);
+
+    return function_exists('mb_strtoupper') ? mb_strtoupper($initials, 'UTF-8') : strtoupper($initials);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -93,7 +107,7 @@ $blogPosts = [
                 <ul>
                     <li><a href="index.php" class="active">Home</a></li>
                     <li><a href="#">Explore</a></li>
-                    <li><a href="#">Write</a></li>
+                    <li><a href="<?php echo $isLoggedIn ? 'create-post.php' : 'login.php'; ?>">Write</a></li>
                     <li><a href="#">About</a></li>
                     <?php if ($isLoggedIn): ?>
                     <li class="nav-auth-mobile"><a href="#" class="btn btn-login">Hi, <?php echo htmlspecialchars($currentUsername); ?></a></li>
@@ -132,6 +146,12 @@ $blogPosts = [
         </div>
     </header>
 
+    <?php if ($postDeleted): ?>
+    <div class="container">
+        <div class="home-notice" role="status">Your post was deleted successfully.</div>
+    </div>
+    <?php endif; ?>
+
     <!-- ===== Hero Section ===== -->
     <section class="hero">
         <div class="container hero-inner">
@@ -139,7 +159,7 @@ $blogPosts = [
                 <h1>Share Ideas.<br><span class="text-blue">Inspire</span> Minds.</h1>
                 <p>BrainOverflow is a space for curious minds to learn, share knowledge, and grow together.</p>
                 <div class="hero-buttons">
-                    <a href="<?php echo $isLoggedIn ? '#' : 'login.php'; ?>" class="btn btn-hero">
+                    <a href="<?php echo $isLoggedIn ? 'create-post.php' : 'login.php'; ?>" class="btn btn-hero">
                         <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                         Start Writing
                     </a>
@@ -183,23 +203,30 @@ $blogPosts = [
             </div>
 
             <div class="blog-grid">
-                <?php foreach ($blogPosts as $post): ?>
+                <?php if (empty($featuredPosts)): ?>
+                <div class="posts-empty">
+                    <h3><?php echo $postsLoadFailed ? 'Posts are temporarily unavailable' : 'No posts yet'; ?></h3>
+                    <p><?php echo $postsLoadFailed ? 'Please try again later.' : 'Be the first to share something with the community.'; ?></p>
+                </div>
+                <?php else: ?>
+                <?php foreach ($featuredPosts as $post): ?>
                 <article class="blog-card">
-                    <div class="card-thumb thumb-<?php echo strtolower($post['category']); ?>"></div>
+                    <div class="card-thumb thumb-php"></div>
                     <div class="card-body">
-                        <span class="card-category cat-<?php echo strtolower($post['category']); ?>"><?php echo htmlspecialchars($post['category']); ?></span>
-                        <h3><?php echo htmlspecialchars($post['title']); ?></h3>
-                        <p class="card-excerpt"><?php echo htmlspecialchars($post['excerpt']); ?></p>
+                        <span class="card-category cat-php">Community</span>
+                        <h3><a href="post.php?id=<?php echo rawurlencode((string) $post['id']); ?>"><?php echo htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8'); ?></a></h3>
+                        <p class="card-excerpt"><?php echo htmlspecialchars(brainoverflow_post_excerpt($post['content']), ENT_QUOTES, 'UTF-8'); ?></p>
                         <div class="card-meta">
                             <div class="meta-author">
-                                <div class="author-avatar av-<?php echo strtolower($post['category']); ?>"><?php echo htmlspecialchars($post['initials']); ?></div>
-                                <span class="author-name"><?php echo htmlspecialchars($post['author']); ?></span>
+                                <div class="author-avatar av-php"><?php echo htmlspecialchars(brainoverflow_author_initials($post['author_username']), ENT_QUOTES, 'UTF-8'); ?></div>
+                                <span class="author-name"><?php echo htmlspecialchars($post['author_username'], ENT_QUOTES, 'UTF-8'); ?></span>
                             </div>
-                            <span class="post-date"><?php echo htmlspecialchars($post['date']); ?></span>
+                            <span class="post-date"><?php echo htmlspecialchars(date('F j, Y', strtotime($post['created_at'])), ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
                     </div>
                 </article>
                 <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
     </section>
@@ -216,26 +243,32 @@ $blogPosts = [
             </div>
 
             <div class="blog-list">
+                <?php if (empty($blogPosts)): ?>
+                <div class="posts-empty posts-empty-list">
+                    <p><?php echo $postsLoadFailed ? 'Posts could not be loaded right now.' : 'New posts will appear here once they are published.'; ?></p>
+                </div>
+                <?php else: ?>
                 <?php foreach ($blogPosts as $post): ?>
                 <article class="blog-row">
-                    <div class="row-thumb thumb-<?php echo strtolower($post['category']); ?>">
-                        <span><?php echo htmlspecialchars($post['thumb_label']); ?></span>
+                    <div class="row-thumb thumb-php">
+                        <span>POST</span>
                     </div>
                     <div class="row-content">
-                        <span class="card-category cat-<?php echo strtolower($post['category']); ?>"><?php echo htmlspecialchars($post['category']); ?></span>
-                        <h3><?php echo htmlspecialchars($post['title']); ?></h3>
-                        <p class="row-excerpt"><?php echo htmlspecialchars($post['excerpt']); ?></p>
+                        <span class="card-category cat-php">Community</span>
+                        <h3><a href="post.php?id=<?php echo rawurlencode((string) $post['id']); ?>"><?php echo htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8'); ?></a></h3>
+                        <p class="row-excerpt"><?php echo htmlspecialchars(brainoverflow_post_excerpt($post['content']), ENT_QUOTES, 'UTF-8'); ?></p>
                     </div>
                     <div class="row-meta">
                         <div class="meta-author">
-                            <div class="author-avatar av-<?php echo strtolower($post['category']); ?>"><?php echo htmlspecialchars($post['initials']); ?></div>
-                            <span class="author-name"><?php echo htmlspecialchars($post['author']); ?></span>
+                            <div class="author-avatar av-php"><?php echo htmlspecialchars(brainoverflow_author_initials($post['author_username']), ENT_QUOTES, 'UTF-8'); ?></div>
+                            <span class="author-name"><?php echo htmlspecialchars($post['author_username'], ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
-                        <span class="post-date"><?php echo htmlspecialchars($post['date']); ?></span>
+                        <span class="post-date"><?php echo htmlspecialchars(date('F j, Y', strtotime($post['created_at'])), ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
-                    <a href="#" class="row-arrow" aria-label="Read more">&rarr;</a>
+                    <a href="post.php?id=<?php echo rawurlencode((string) $post['id']); ?>" class="row-arrow" aria-label="Read <?php echo htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8'); ?>">&rarr;</a>
                 </article>
                 <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
     </section>

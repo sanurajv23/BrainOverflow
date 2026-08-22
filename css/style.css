@@ -142,6 +142,21 @@ img {
     color: var(--brand-blue);
 }
 
+.home-notice {
+    margin-top: 24px;
+    padding: 13px 16px;
+    color: #166534;
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    border-radius: var(--radius-md);
+}
+
+:root[data-theme="dark"] .home-notice {
+    color: #bbf7d0;
+    background: #14532d;
+    border-color: #166534;
+}
+
 .hero .text-blue {
     color: #f97316;
 }
@@ -643,6 +658,21 @@ img {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 22px;
+}
+
+.posts-empty {
+    grid-column: 1 / -1;
+    width: 100%;
+    padding: 42px 24px;
+    text-align: center;
+    color: var(--color-text-light);
+    background: var(--color-surface);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-lg);
+}
+
+.posts-empty h3 {
+    margin-bottom: 8px;
 }
 
 /* Blog Card (Featured) */
