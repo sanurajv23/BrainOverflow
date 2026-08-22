@@ -3,6 +3,10 @@
 const BRAINOVERFLOW_SESSION_IDLE_TIMEOUT = 7200;
 const BRAINOVERFLOW_USERNAME_MIN_LENGTH = 3;
 const BRAINOVERFLOW_USERNAME_MAX_LENGTH = 30;
+const BRAINOVERFLOW_LOGIN_MAX_ATTEMPTS = 5;
+const BRAINOVERFLOW_LOGIN_ATTEMPT_WINDOW = 900;
+const BRAINOVERFLOW_LOGIN_LOCKOUT_DURATION = 900;
+const BRAINOVERFLOW_LOGIN_MAX_DELAY_MICROSECONDS = 2000000;
 
 function brainoverflow_start_session(): void
 {
@@ -54,6 +58,38 @@ function brainoverflow_is_logged_in(): bool
     if (!is_int($lastActivity) || time() - $lastActivity > BRAINOVERFLOW_SESSION_IDLE_TIMEOUT) {
         brainoverflow_logout_user();
         return false;
+    }
+
+    static $validatedSessions = [];
+    $sessionValidationKey = session_id() . ':' . $_SESSION['user_id'];
+
+    if (!isset($validatedSessions[$sessionValidationKey])) {
+        try {
+            require __DIR__ . '/../config/database.php';
+
+            $currentUserQuery = $pdo->prepare(
+                'SELECT id, username, email, role
+                 FROM users
+                 WHERE id = :id
+                 LIMIT 1'
+            );
+            $currentUserQuery->execute(['id' => $_SESSION['user_id']]);
+            $currentUser = $currentUserQuery->fetch();
+
+            if (!$currentUser) {
+                brainoverflow_logout_user();
+                return false;
+            }
+
+            $_SESSION['user_id'] = (int) $currentUser['id'];
+            $_SESSION['username'] = (string) $currentUser['username'];
+            $_SESSION['email'] = (string) $currentUser['email'];
+            $_SESSION['role'] = (string) ($currentUser['role'] ?? 'user');
+            $validatedSessions[$sessionValidationKey] = true;
+        } catch (Throwable $error) {
+            error_log('BrainOverflow session revalidation error: ' . $error->getMessage());
+            return false;
+        }
     }
 
     $_SESSION['last_activity'] = time();
@@ -127,6 +163,160 @@ function brainoverflow_validate_password(string $password): array
     }
 
     return $errors;
+}
+
+function brainoverflow_login_client_ip(): string
+{
+    $remoteAddress = $_SERVER['REMOTE_ADDR'] ?? '';
+
+    return is_string($remoteAddress) && filter_var($remoteAddress, FILTER_VALIDATE_IP)
+        ? $remoteAddress
+        : 'unknown';
+}
+
+function brainoverflow_login_rate_limit_path(string $scope, string $value): string
+{
+    $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'brainoverflow-login-rate-limit';
+
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        throw new RuntimeException('Login rate-limit storage could not be created.');
+    }
+
+    return $directory . DIRECTORY_SEPARATOR . hash('sha256', $scope . ':' . $value) . '.json';
+}
+
+function brainoverflow_login_rate_limit_record(string $scope, string $value): array
+{
+    $path = brainoverflow_login_rate_limit_path($scope, $value);
+    $handle = fopen($path, 'c+');
+
+    if ($handle === false) {
+        throw new RuntimeException('Login rate-limit record could not be opened.');
+    }
+
+    try {
+        if (!flock($handle, LOCK_EX)) {
+            throw new RuntimeException('Login rate-limit record could not be locked.');
+        }
+
+        rewind($handle);
+        $stored = stream_get_contents($handle);
+        $record = is_string($stored) && $stored !== '' ? json_decode($stored, true) : null;
+
+        if (!is_array($record)) {
+            return ['attempts' => 0, 'first_attempt' => 0, 'locked_until' => 0];
+        }
+
+        return [
+            'attempts' => max(0, (int) ($record['attempts'] ?? 0)),
+            'first_attempt' => max(0, (int) ($record['first_attempt'] ?? 0)),
+            'locked_until' => max(0, (int) ($record['locked_until'] ?? 0)),
+        ];
+    } finally {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+    }
+}
+
+function brainoverflow_login_rate_limit_keys(string $ipAddress, string $identifier): array
+{
+    return [
+        ['scope' => 'ip', 'value' => $ipAddress],
+        ['scope' => 'identifier', 'value' => strtolower(trim($identifier))],
+    ];
+}
+
+function brainoverflow_login_rate_limit_status(string $ipAddress, string $identifier): array
+{
+    $now = time();
+    $retryAfter = 0;
+
+    try {
+        foreach (brainoverflow_login_rate_limit_keys($ipAddress, $identifier) as $key) {
+            $record = brainoverflow_login_rate_limit_record($key['scope'], $key['value']);
+            $retryAfter = max($retryAfter, $record['locked_until'] - $now);
+        }
+    } catch (Throwable $error) {
+        error_log('BrainOverflow login rate-limit read error: ' . $error->getMessage());
+    }
+
+    return ['limited' => $retryAfter > 0, 'retry_after' => max(0, $retryAfter)];
+}
+
+function brainoverflow_record_failed_login(string $ipAddress, string $identifier): int
+{
+    $now = time();
+    $highestAttempts = 0;
+
+    try {
+        foreach (brainoverflow_login_rate_limit_keys($ipAddress, $identifier) as $key) {
+            $path = brainoverflow_login_rate_limit_path($key['scope'], $key['value']);
+            $handle = fopen($path, 'c+');
+
+            if ($handle === false || !flock($handle, LOCK_EX)) {
+                if (is_resource($handle)) {
+                    fclose($handle);
+                }
+
+                throw new RuntimeException('Login rate-limit record could not be updated.');
+            }
+
+            try {
+                $stored = stream_get_contents($handle);
+                $record = is_string($stored) && $stored !== '' ? json_decode($stored, true) : null;
+
+                if (!is_array($record)) {
+                    $record = ['attempts' => 0, 'first_attempt' => $now, 'locked_until' => 0];
+                }
+
+                $record['attempts'] = max(0, (int) ($record['attempts'] ?? 0));
+                $record['first_attempt'] = max(0, (int) ($record['first_attempt'] ?? 0));
+                $record['locked_until'] = max(0, (int) ($record['locked_until'] ?? 0));
+
+                if ($record['first_attempt'] === 0 || $now - $record['first_attempt'] > BRAINOVERFLOW_LOGIN_ATTEMPT_WINDOW) {
+                    $record = ['attempts' => 0, 'first_attempt' => $now, 'locked_until' => 0];
+                }
+
+                $record['attempts']++;
+                $highestAttempts = max($highestAttempts, $record['attempts']);
+
+                if ($record['attempts'] >= BRAINOVERFLOW_LOGIN_MAX_ATTEMPTS) {
+                    $record['locked_until'] = $now + BRAINOVERFLOW_LOGIN_LOCKOUT_DURATION;
+                }
+
+                rewind($handle);
+                ftruncate($handle, 0);
+                fwrite($handle, json_encode($record, JSON_THROW_ON_ERROR));
+                fflush($handle);
+            } finally {
+                flock($handle, LOCK_UN);
+                fclose($handle);
+            }
+        }
+    } catch (Throwable $error) {
+        error_log('BrainOverflow login rate-limit write error: ' . $error->getMessage());
+        return 0;
+    }
+
+    return min(
+        max(0, $highestAttempts - 1) * 250000,
+        BRAINOVERFLOW_LOGIN_MAX_DELAY_MICROSECONDS
+    );
+}
+
+function brainoverflow_reset_login_rate_limit(string $ipAddress, string $identifier): void
+{
+    try {
+        foreach (brainoverflow_login_rate_limit_keys($ipAddress, $identifier) as $key) {
+            $path = brainoverflow_login_rate_limit_path($key['scope'], $key['value']);
+
+            if (is_file($path) && !unlink($path)) {
+                throw new RuntimeException('Login rate-limit record could not be removed.');
+            }
+        }
+    } catch (Throwable $error) {
+        error_log('BrainOverflow login rate-limit reset error: ' . $error->getMessage());
+    }
 }
 
 function brainoverflow_logout_user(): void

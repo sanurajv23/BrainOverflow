@@ -7,20 +7,41 @@ if (!brainoverflow_is_logged_in()) {
     exit;
 }
 
+const BRAINOVERFLOW_MY_POSTS_PER_PAGE = 10;
+
 $currentUsername = brainoverflow_current_username();
 $blogPosts = [];
 $postsLoadFailed = false;
+$rawPage = $_GET['page'] ?? null;
+$requestedPage = is_string($rawPage) && preg_match('/\A[1-9][0-9]*\z/', $rawPage) === 1
+    ? filter_var($rawPage, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+    : 1;
+$requestedPage = $requestedPage !== false ? $requestedPage : 1;
+$currentPage = $requestedPage;
+$totalPosts = 0;
+$totalPages = 1;
 
 try {
     require __DIR__ . '/config/database.php';
+
+    $countQuery = $pdo->prepare('SELECT COUNT(*) FROM blogpost WHERE user_id = :user_id');
+    $countQuery->execute(['user_id' => $_SESSION['user_id']]);
+    $totalPosts = (int) $countQuery->fetchColumn();
+    $totalPages = max(1, (int) ceil($totalPosts / BRAINOVERFLOW_MY_POSTS_PER_PAGE));
+    $currentPage = min($requestedPage, $totalPages);
+    $offset = ($currentPage - 1) * BRAINOVERFLOW_MY_POSTS_PER_PAGE;
 
     $postsQuery = $pdo->prepare(
         'SELECT id, title, content, created_at
          FROM blogpost
          WHERE user_id = :user_id
-         ORDER BY created_at DESC, id DESC'
+         ORDER BY created_at DESC, id DESC
+         LIMIT :limit OFFSET :offset'
     );
-    $postsQuery->execute(['user_id' => $_SESSION['user_id']]);
+    $postsQuery->bindValue(':user_id', $_SESSION['user_id'], PDO::PARAM_INT);
+    $postsQuery->bindValue(':limit', BRAINOVERFLOW_MY_POSTS_PER_PAGE, PDO::PARAM_INT);
+    $postsQuery->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $postsQuery->execute();
     $blogPosts = $postsQuery->fetchAll();
 } catch (Throwable $error) {
     error_log('BrainOverflow my posts error: ' . $error->getMessage());
@@ -41,6 +62,11 @@ function brainoverflow_my_posts_excerpt(string $content, int $maximumLength = 17
         : substr($normalizedContent, 0, $maximumLength - 1);
 
     return rtrim($excerpt) . '…';
+}
+
+function brainoverflow_my_posts_page_url(int $page): string
+{
+    return 'my-posts.php?' . http_build_query(['page' => $page], '', '&', PHP_QUERY_RFC3986);
 }
 ?>
 <!DOCTYPE html>
@@ -74,6 +100,11 @@ function brainoverflow_my_posts_excerpt(string $content, int $maximumLength = 17
         .my-post-actions .btn { padding: 8px 14px; font-size: 0.86rem; }
         .btn-delete { color: #b91c1c; background: transparent; border: 1px solid #ef4444; }
         .btn-delete:hover { color: #fff; background: #dc2626; }
+        .pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; margin-top: 34px; }
+        .pagination-link { display: inline-flex; min-width: 40px; min-height: 40px; align-items: center; justify-content: center; padding: 8px 13px; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-weight: 650; }
+        .pagination-link:hover { color: var(--color-primary-dark); border-color: var(--color-border-hover); }
+        .pagination-link.active { color: #fff; background: var(--color-primary); border-color: var(--color-primary); }
+        .pagination-link.disabled { color: var(--color-text-muted); opacity: 0.65; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -174,6 +205,26 @@ function brainoverflow_my_posts_excerpt(string $content, int $maximumLength = 17
                     <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+
+                <?php if (!$postsLoadFailed && $totalPages > 1): ?>
+                <nav class="pagination" aria-label="My posts pages">
+                    <?php if ($currentPage > 1): ?>
+                        <a class="pagination-link" href="<?php echo htmlspecialchars(brainoverflow_my_posts_page_url($currentPage - 1), ENT_QUOTES, 'UTF-8'); ?>">Previous</a>
+                    <?php else: ?>
+                        <span class="pagination-link disabled" aria-disabled="true">Previous</span>
+                    <?php endif; ?>
+
+                    <?php for ($pageNumber = 1; $pageNumber <= $totalPages; $pageNumber++): ?>
+                        <a class="pagination-link<?php echo $pageNumber === $currentPage ? ' active' : ''; ?>" href="<?php echo htmlspecialchars(brainoverflow_my_posts_page_url($pageNumber), ENT_QUOTES, 'UTF-8'); ?>"<?php echo $pageNumber === $currentPage ? ' aria-current="page"' : ''; ?>><?php echo $pageNumber; ?></a>
+                    <?php endfor; ?>
+
+                    <?php if ($currentPage < $totalPages): ?>
+                        <a class="pagination-link" href="<?php echo htmlspecialchars(brainoverflow_my_posts_page_url($currentPage + 1), ENT_QUOTES, 'UTF-8'); ?>">Next</a>
+                    <?php else: ?>
+                        <span class="pagination-link disabled" aria-disabled="true">Next</span>
+                    <?php endif; ?>
+                </nav>
+                <?php endif; ?>
             </div>
         </section>
     </main>

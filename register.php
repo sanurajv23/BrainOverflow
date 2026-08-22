@@ -10,10 +10,10 @@ $oauthError = $_SESSION['oauth_error'] ?? '';
 unset($_SESSION['oauth_error']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $confirmPassword = $_POST['confirm_password'] ?? '';
+    $username = is_string($_POST['username'] ?? null) ? trim($_POST['username']) : '';
+    $email = is_string($_POST['email'] ?? null) ? trim($_POST['email']) : '';
+    $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
+    $confirmPassword = is_string($_POST['confirm_password'] ?? null) ? $_POST['confirm_password'] : '';
 
     if (!brainoverflow_verify_csrf_token($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Your registration session expired. Please try again.';

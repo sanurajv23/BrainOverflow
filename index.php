@@ -18,7 +18,8 @@ try {
                 users.username AS author_username
          FROM blogpost
          INNER JOIN users ON users.id = blogpost.user_id
-         ORDER BY blogpost.created_at DESC, blogpost.id DESC'
+         ORDER BY blogpost.created_at DESC, blogpost.id DESC
+         LIMIT 10'
     );
     $blogPosts = $postsQuery->fetchAll();
 } catch (Throwable $error) {

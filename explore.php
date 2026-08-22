@@ -10,25 +10,41 @@ const BRAINOVERFLOW_POST_CATEGORIES = [
     'Technology',
     'Other',
 ];
+const BRAINOVERFLOW_POSTS_PER_PAGE = 10;
+const BRAINOVERFLOW_SEARCH_MAX_LENGTH = 100;
 
 $isLoggedIn = brainoverflow_is_logged_in();
 $currentUsername = brainoverflow_current_username();
 $blogPosts = [];
 $postsLoadFailed = false;
 $searchTerm = is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
+$searchTermLength = function_exists('mb_strlen') ? mb_strlen($searchTerm, 'UTF-8') : strlen($searchTerm);
+
+if ($searchTermLength > BRAINOVERFLOW_SEARCH_MAX_LENGTH) {
+    $searchTerm = function_exists('mb_substr')
+        ? mb_substr($searchTerm, 0, BRAINOVERFLOW_SEARCH_MAX_LENGTH, 'UTF-8')
+        : substr($searchTerm, 0, BRAINOVERFLOW_SEARCH_MAX_LENGTH);
+}
+
 $hasSearch = $searchTerm !== '';
 $requestedCategory = is_string($_GET['category'] ?? null) ? trim($_GET['category']) : '';
 $selectedCategory = in_array($requestedCategory, BRAINOVERFLOW_POST_CATEGORIES, true) ? $requestedCategory : '';
 $hasCategoryFilter = $selectedCategory !== '';
+$rawPage = $_GET['page'] ?? null;
+$requestedPage = is_string($rawPage) && preg_match('/\A[1-9][0-9]*\z/', $rawPage) === 1
+    ? filter_var($rawPage, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+    : 1;
+$requestedPage = $requestedPage !== false ? $requestedPage : 1;
+$currentPage = $requestedPage;
+$totalPosts = 0;
+$totalPages = 1;
 
 try {
     require __DIR__ . '/config/database.php';
 
-    $postsSql =
-        'SELECT blogpost.id, blogpost.title, blogpost.content, blogpost.category, blogpost.created_at,
-                users.username AS author_username
-         FROM blogpost
-         INNER JOIN users ON users.id = blogpost.user_id';
+    $fromSql =
+        ' FROM blogpost
+          INNER JOIN users ON users.id = blogpost.user_id';
 
     $whereClauses = [];
     $queryParameters = [];
@@ -48,13 +64,31 @@ try {
         $queryParameters['category'] = $selectedCategory;
     }
 
-    if (!empty($whereClauses)) {
-        $postsSql .= ' WHERE ' . implode(' AND ', $whereClauses);
+    $whereSql = !empty($whereClauses) ? ' WHERE ' . implode(' AND ', $whereClauses) : '';
+
+    $countQuery = $pdo->prepare('SELECT COUNT(*)' . $fromSql . $whereSql);
+    $countQuery->execute($queryParameters);
+    $totalPosts = (int) $countQuery->fetchColumn();
+    $totalPages = max(1, (int) ceil($totalPosts / BRAINOVERFLOW_POSTS_PER_PAGE));
+    $currentPage = min($requestedPage, $totalPages);
+    $offset = ($currentPage - 1) * BRAINOVERFLOW_POSTS_PER_PAGE;
+
+    $postsSql =
+        'SELECT blogpost.id, blogpost.title, blogpost.content, blogpost.category, blogpost.created_at,
+                users.username AS author_username'
+        . $fromSql
+        . $whereSql
+        . ' ORDER BY blogpost.created_at DESC, blogpost.id DESC
+            LIMIT :limit OFFSET :offset';
+    $postsQuery = $pdo->prepare($postsSql);
+
+    foreach ($queryParameters as $parameterName => $parameterValue) {
+        $postsQuery->bindValue(':' . $parameterName, $parameterValue, PDO::PARAM_STR);
     }
 
-    $postsSql .= ' ORDER BY blogpost.created_at DESC, blogpost.id DESC';
-    $postsQuery = $pdo->prepare($postsSql);
-    $postsQuery->execute($queryParameters);
+    $postsQuery->bindValue(':limit', BRAINOVERFLOW_POSTS_PER_PAGE, PDO::PARAM_INT);
+    $postsQuery->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $postsQuery->execute();
 
     $blogPosts = $postsQuery->fetchAll();
 } catch (Throwable $error) {
@@ -83,6 +117,23 @@ function brainoverflow_explore_initials(string $username): string
     $initials = function_exists('mb_substr') ? mb_substr($username, 0, 2, 'UTF-8') : substr($username, 0, 2);
 
     return function_exists('mb_strtoupper') ? mb_strtoupper($initials, 'UTF-8') : strtoupper($initials);
+}
+
+function brainoverflow_explore_page_url(int $page, string $searchTerm, string $category): string
+{
+    $parameters = [];
+
+    if ($searchTerm !== '') {
+        $parameters['q'] = $searchTerm;
+    }
+
+    if ($category !== '') {
+        $parameters['category'] = $category;
+    }
+
+    $parameters['page'] = $page;
+
+    return 'explore.php?' . http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
 }
 ?>
 <!DOCTYPE html>
@@ -117,6 +168,11 @@ function brainoverflow_explore_initials(string $username): string
         .explore-search select { min-width: 180px; padding: 10px 14px; color: var(--color-text); background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-full); outline: 0; font: inherit; }
         .explore-search .btn { flex: 0 0 auto; }
         .search-summary { color: var(--color-text-light); font-size: 0.95rem; }
+        .pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; margin-top: 34px; }
+        .pagination-link { display: inline-flex; min-width: 40px; min-height: 40px; align-items: center; justify-content: center; padding: 8px 13px; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-weight: 650; }
+        .pagination-link:hover { color: var(--color-primary-dark); border-color: var(--color-border-hover); }
+        .pagination-link.active { color: #fff; background: var(--color-primary); border-color: var(--color-primary); }
+        .pagination-link.disabled { color: var(--color-text-muted); opacity: 0.65; cursor: not-allowed; }
         @media (max-width: 640px) { .explore-search { flex-direction: column; border-radius: var(--radius-md); } .explore-search select { width: 100%; border-radius: var(--radius-md); } .explore-search .btn { width: 100%; } }
     </style>
 </head>
@@ -211,7 +267,7 @@ function brainoverflow_explore_initials(string $username): string
                 <div class="section-header">
                     <h2><span class="section-bar"></span><?php echo ($hasSearch || $hasCategoryFilter) ? 'Filtered Posts' : 'All Posts'; ?></h2>
                     <?php if (($hasSearch || $hasCategoryFilter) && !$postsLoadFailed): ?>
-                    <span class="search-summary"><?php echo count($blogPosts); ?> result<?php echo count($blogPosts) === 1 ? '' : 's'; ?></span>
+                    <span class="search-summary"><?php echo $totalPosts; ?> result<?php echo $totalPosts === 1 ? '' : 's'; ?></span>
                     <?php endif; ?>
                 </div>
 
@@ -255,6 +311,26 @@ function brainoverflow_explore_initials(string $username): string
                     <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+
+                <?php if (!$postsLoadFailed && $totalPages > 1): ?>
+                <nav class="pagination" aria-label="Explore posts pages">
+                    <?php if ($currentPage > 1): ?>
+                        <a class="pagination-link" href="<?php echo htmlspecialchars(brainoverflow_explore_page_url($currentPage - 1, $searchTerm, $selectedCategory), ENT_QUOTES, 'UTF-8'); ?>">Previous</a>
+                    <?php else: ?>
+                        <span class="pagination-link disabled" aria-disabled="true">Previous</span>
+                    <?php endif; ?>
+
+                    <?php for ($pageNumber = 1; $pageNumber <= $totalPages; $pageNumber++): ?>
+                        <a class="pagination-link<?php echo $pageNumber === $currentPage ? ' active' : ''; ?>" href="<?php echo htmlspecialchars(brainoverflow_explore_page_url($pageNumber, $searchTerm, $selectedCategory), ENT_QUOTES, 'UTF-8'); ?>"<?php echo $pageNumber === $currentPage ? ' aria-current="page"' : ''; ?>><?php echo $pageNumber; ?></a>
+                    <?php endfor; ?>
+
+                    <?php if ($currentPage < $totalPages): ?>
+                        <a class="pagination-link" href="<?php echo htmlspecialchars(brainoverflow_explore_page_url($currentPage + 1, $searchTerm, $selectedCategory), ENT_QUOTES, 'UTF-8'); ?>">Next</a>
+                    <?php else: ?>
+                        <span class="pagination-link disabled" aria-disabled="true">Next</span>
+                    <?php endif; ?>
+                </nav>
+                <?php endif; ?>
             </div>
         </section>
     </main>

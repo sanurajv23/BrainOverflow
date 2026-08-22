@@ -11,13 +11,24 @@ $errors = [];
 $loginIdentifier = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $loginIdentifier = trim($_POST['login_identifier'] ?? '');
-    $password = $_POST['password'] ?? '';
+    $loginIdentifier = is_string($_POST['login_identifier'] ?? null) ? trim($_POST['login_identifier']) : '';
+    $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
+    $clientIp = brainoverflow_login_client_ip();
 
     if (!brainoverflow_verify_csrf_token($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Your login session expired. Please try again.';
     } elseif ($loginIdentifier === '' || $password === '') {
         $errors[] = 'Please enter your username or email and password.';
+    }
+
+    if (empty($errors)) {
+        $rateLimit = brainoverflow_login_rate_limit_status($clientIp, $loginIdentifier);
+
+        if ($rateLimit['limited']) {
+            http_response_code(429);
+            header('Retry-After: ' . $rateLimit['retry_after']);
+            $errors[] = 'Too many failed login attempts. Please try again later.';
+        }
     }
 
     if (empty($errors)) {
@@ -37,6 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $findUser->fetch();
 
             if (!$user || empty($user['password']) || !password_verify($password, $user['password'])) {
+                $delayMicroseconds = brainoverflow_record_failed_login($clientIp, $loginIdentifier);
+
+                if ($delayMicroseconds > 0) {
+                    usleep($delayMicroseconds);
+                }
+
                 $errors[] = 'Invalid username/email or password.';
             } else {
                 if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
@@ -47,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
                 }
 
+                brainoverflow_reset_login_rate_limit($clientIp, $loginIdentifier);
                 brainoverflow_login_user($user);
                 header('Location: index.php');
                 exit;

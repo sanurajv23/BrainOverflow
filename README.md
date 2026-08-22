@@ -270,7 +270,7 @@ No database passwords, API keys, secrets, or private credentials should be commi
 To run the project with PHP's built-in development server from the project root:
 
 ```bash
-php -S localhost:8000
+php -S localhost:8000 router.php
 ```
 
 Then open:
