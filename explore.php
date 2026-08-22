@@ -2,41 +2,59 @@
 require_once __DIR__ . '/includes/auth.php';
 brainoverflow_start_session();
 
+const BRAINOVERFLOW_POST_CATEGORIES = [
+    'Programming',
+    'Web Development',
+    'AI',
+    'Database',
+    'Technology',
+    'Other',
+];
+
 $isLoggedIn = brainoverflow_is_logged_in();
 $currentUsername = brainoverflow_current_username();
 $blogPosts = [];
 $postsLoadFailed = false;
 $searchTerm = is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
 $hasSearch = $searchTerm !== '';
+$requestedCategory = is_string($_GET['category'] ?? null) ? trim($_GET['category']) : '';
+$selectedCategory = in_array($requestedCategory, BRAINOVERFLOW_POST_CATEGORIES, true) ? $requestedCategory : '';
+$hasCategoryFilter = $selectedCategory !== '';
 
 try {
     require __DIR__ . '/config/database.php';
 
     $postsSql =
-        'SELECT blogpost.id, blogpost.title, blogpost.content, blogpost.created_at,
+        'SELECT blogpost.id, blogpost.title, blogpost.content, blogpost.category, blogpost.created_at,
                 users.username AS author_username
          FROM blogpost
          INNER JOIN users ON users.id = blogpost.user_id';
 
+    $whereClauses = [];
+    $queryParameters = [];
+
     if ($hasSearch) {
-        $postsSql .=
-            " WHERE (blogpost.title LIKE :title_term ESCAPE '!'
-                     OR blogpost.content LIKE :content_term ESCAPE '!')";
+        $whereClauses[] =
+            "(blogpost.title LIKE :title_term ESCAPE '!'
+              OR blogpost.content LIKE :content_term ESCAPE '!')";
+        $escapedSearchTerm = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $searchTerm);
+        $likeSearchTerm = '%' . $escapedSearchTerm . '%';
+        $queryParameters['title_term'] = $likeSearchTerm;
+        $queryParameters['content_term'] = $likeSearchTerm;
+    }
+
+    if ($hasCategoryFilter) {
+        $whereClauses[] = 'blogpost.category = :category';
+        $queryParameters['category'] = $selectedCategory;
+    }
+
+    if (!empty($whereClauses)) {
+        $postsSql .= ' WHERE ' . implode(' AND ', $whereClauses);
     }
 
     $postsSql .= ' ORDER BY blogpost.created_at DESC, blogpost.id DESC';
     $postsQuery = $pdo->prepare($postsSql);
-
-    if ($hasSearch) {
-        $escapedSearchTerm = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $searchTerm);
-        $likeSearchTerm = '%' . $escapedSearchTerm . '%';
-        $postsQuery->execute([
-            'title_term' => $likeSearchTerm,
-            'content_term' => $likeSearchTerm,
-        ]);
-    } else {
-        $postsQuery->execute();
-    }
+    $postsQuery->execute($queryParameters);
 
     $blogPosts = $postsQuery->fetchAll();
 } catch (Throwable $error) {
@@ -93,12 +111,13 @@ function brainoverflow_explore_initials(string $username): string
         .explore-hero p { max-width: 620px; margin: 0 auto; color: var(--color-text-light); }
         .explore-posts { padding-top: 38px; }
         .explore-posts .blog-card h3 a:hover { color: var(--color-primary-dark); }
-        .explore-search { display: flex; width: min(680px, 100%); margin: 30px auto 0; padding: 7px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-full); box-shadow: var(--shadow-sm); }
+        .explore-search { display: flex; gap: 6px; width: min(820px, 100%); margin: 30px auto 0; padding: 7px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-full); box-shadow: var(--shadow-sm); }
         .explore-search:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--accent-light); }
         .explore-search input { flex: 1; min-width: 0; padding: 10px 16px; color: var(--color-text); background: transparent; border: 0; outline: 0; font: inherit; }
+        .explore-search select { min-width: 180px; padding: 10px 14px; color: var(--color-text); background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-full); outline: 0; font: inherit; }
         .explore-search .btn { flex: 0 0 auto; }
         .search-summary { color: var(--color-text-light); font-size: 0.95rem; }
-        @media (max-width: 520px) { .explore-search { border-radius: var(--radius-md); } .explore-search .btn { padding-inline: 16px; } }
+        @media (max-width: 640px) { .explore-search { flex-direction: column; border-radius: var(--radius-md); } .explore-search select { width: 100%; border-radius: var(--radius-md); } .explore-search .btn { width: 100%; } }
     </style>
 </head>
 <body>
@@ -176,7 +195,13 @@ function brainoverflow_explore_initials(string $username): string
                 <p>Discover ideas, lessons, and stories shared by the BrainOverflow community.</p>
                 <form class="explore-search" method="GET" action="explore.php" role="search">
                     <input type="search" name="q" aria-label="Search blog posts" placeholder="Search titles and content" value="<?php echo htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8'); ?>">
-                    <button class="btn btn-hero" type="submit">Search</button>
+                    <select name="category" aria-label="Filter by category">
+                        <option value="">All Categories</option>
+                        <?php foreach (BRAINOVERFLOW_POST_CATEGORIES as $categoryOption): ?>
+                            <option value="<?php echo htmlspecialchars($categoryOption, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $selectedCategory === $categoryOption ? ' selected' : ''; ?>><?php echo htmlspecialchars($categoryOption, ENT_QUOTES, 'UTF-8'); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button class="btn btn-hero" type="submit">Apply</button>
                 </form>
             </div>
         </section>
@@ -184,8 +209,8 @@ function brainoverflow_explore_initials(string $username): string
         <section class="featured-posts explore-posts">
             <div class="container">
                 <div class="section-header">
-                    <h2><span class="section-bar"></span><?php echo $hasSearch ? 'Search Results' : 'All Posts'; ?></h2>
-                    <?php if ($hasSearch && !$postsLoadFailed): ?>
+                    <h2><span class="section-bar"></span><?php echo ($hasSearch || $hasCategoryFilter) ? 'Filtered Posts' : 'All Posts'; ?></h2>
+                    <?php if (($hasSearch || $hasCategoryFilter) && !$postsLoadFailed): ?>
                     <span class="search-summary"><?php echo count($blogPosts); ?> result<?php echo count($blogPosts) === 1 ? '' : 's'; ?></span>
                     <?php endif; ?>
                 </div>
@@ -193,12 +218,16 @@ function brainoverflow_explore_initials(string $username): string
                 <div class="blog-grid">
                     <?php if (empty($blogPosts)): ?>
                     <div class="posts-empty">
-                        <h3><?php echo $postsLoadFailed ? 'Posts are temporarily unavailable' : ($hasSearch ? 'No results found' : 'No posts yet'); ?></h3>
+                        <h3><?php echo $postsLoadFailed ? 'Posts are temporarily unavailable' : (($hasSearch || $hasCategoryFilter) ? 'No results found' : 'No posts yet'); ?></h3>
                         <p>
                             <?php if ($postsLoadFailed): ?>
                                 Please try again later.
+                            <?php elseif ($hasSearch && $hasCategoryFilter): ?>
+                                No posts matched your search in <?php echo htmlspecialchars($selectedCategory, ENT_QUOTES, 'UTF-8'); ?>.
                             <?php elseif ($hasSearch): ?>
                                 No posts matched “<?php echo htmlspecialchars($searchTerm, ENT_QUOTES, 'UTF-8'); ?>”. Try a different search.
+                            <?php elseif ($hasCategoryFilter): ?>
+                                No posts were found in <?php echo htmlspecialchars($selectedCategory, ENT_QUOTES, 'UTF-8'); ?>.
                             <?php else: ?>
                                 Be the first to share something with the community.
                             <?php endif; ?>
@@ -209,7 +238,9 @@ function brainoverflow_explore_initials(string $username): string
                     <article class="blog-card">
                         <div class="card-thumb thumb-php"></div>
                         <div class="card-body">
-                            <span class="card-category cat-php">Community</span>
+                            <?php if ($post['category'] !== null && trim((string) $post['category']) !== ''): ?>
+                                <span class="card-category cat-php"><?php echo htmlspecialchars($post['category'], ENT_QUOTES, 'UTF-8'); ?></span>
+                            <?php endif; ?>
                             <h3><a href="post.php?id=<?php echo rawurlencode((string) $post['id']); ?>"><?php echo htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8'); ?></a></h3>
                             <p class="card-excerpt"><?php echo htmlspecialchars(brainoverflow_explore_excerpt($post['content']), ENT_QUOTES, 'UTF-8'); ?></p>
                             <div class="card-meta">

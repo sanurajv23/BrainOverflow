@@ -14,7 +14,7 @@ if ($postId !== false) {
         require __DIR__ . '/config/database.php';
 
         $postQuery = $pdo->prepare(
-            'SELECT blogpost.id, blogpost.user_id, blogpost.title, blogpost.content, blogpost.created_at,
+            'SELECT blogpost.id, blogpost.user_id, blogpost.title, blogpost.content, blogpost.category, blogpost.created_at,
                     users.username AS author_username
              FROM blogpost
              INNER JOIN users ON users.id = blogpost.user_id
@@ -108,7 +108,9 @@ $postUpdated = $post !== null && isset($_GET['updated']) && $_GET['updated'] ===
                         <div class="post-notice" role="status">Your post was updated successfully.</div>
                     <?php endif; ?>
                     <article class="post-article">
-                        <span class="card-category cat-php">Community</span>
+                        <?php if ($post['category'] !== null && trim((string) $post['category']) !== ''): ?>
+                            <span class="card-category cat-php"><?php echo htmlspecialchars($post['category'], ENT_QUOTES, 'UTF-8'); ?></span>
+                        <?php endif; ?>
                         <h1><?php echo htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8'); ?></h1>
                         <div class="post-meta">
                             <span>By <span class="post-author"><?php echo htmlspecialchars($post['author_username'], ENT_QUOTES, 'UTF-8'); ?></span></span>

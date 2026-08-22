@@ -10,15 +10,25 @@ if (!brainoverflow_is_logged_in()) {
 const BRAINOVERFLOW_POST_TITLE_MAX_LENGTH = 255;
 const BRAINOVERFLOW_POST_CONTENT_MAX_LENGTH = 50000;
 const BRAINOVERFLOW_POST_CONTENT_MAX_BYTES = 65535;
+const BRAINOVERFLOW_POST_CATEGORIES = [
+    'Programming',
+    'Web Development',
+    'AI',
+    'Database',
+    'Technology',
+    'Other',
+];
 
 $errors = [];
 $title = '';
 $content = '';
+$category = '';
 $postCreated = isset($_GET['created']) && $_GET['created'] === '1';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim(is_string($_POST['title'] ?? null) ? $_POST['title'] : '');
     $content = trim(is_string($_POST['content'] ?? null) ? $_POST['content'] : '');
+    $category = trim(is_string($_POST['category'] ?? null) ? $_POST['category'] : '');
 
     if (!brainoverflow_verify_csrf_token($_POST['csrf_token'] ?? null)) {
         http_response_code(403);
@@ -39,6 +49,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             || strlen($content) > BRAINOVERFLOW_POST_CONTENT_MAX_BYTES) {
             $errors[] = 'Content must be 50,000 characters or fewer.';
         }
+
+        if ($category !== '' && !in_array($category, BRAINOVERFLOW_POST_CATEGORIES, true)) {
+            $errors[] = 'Please select a valid category.';
+        }
     }
 
     if (empty($errors)) {
@@ -46,13 +60,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require __DIR__ . '/config/database.php';
 
             $insertPost = $pdo->prepare(
-                'INSERT INTO blogpost (user_id, title, content)
-                 VALUES (:user_id, :title, :content)'
+                'INSERT INTO blogpost (user_id, title, content, category)
+                 VALUES (:user_id, :title, :content, :category)'
             );
             $insertPost->execute([
                 'user_id' => $_SESSION['user_id'],
                 'title' => $title,
                 'content' => $content,
+                'category' => $category !== '' ? $category : null,
             ]);
 
             header('Location: create-post.php?created=1');
@@ -108,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .create-heading p, .field-hint { color: var(--color-text-light); }
         .form-field { margin-bottom: 22px; }
         .form-field label { display: block; margin-bottom: 8px; font-weight: 650; }
-        .form-field input, .form-field textarea {
+        .form-field input, .form-field textarea, .form-field select {
             width: 100%;
             padding: 13px 15px;
             color: var(--color-text);
@@ -118,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font: inherit;
         }
         .form-field textarea { min-height: 330px; resize: vertical; }
-        .form-field input:focus, .form-field textarea:focus {
+        .form-field input:focus, .form-field textarea:focus, .form-field select:focus {
             border-color: var(--accent);
             outline: 3px solid var(--accent-light);
         }
@@ -172,6 +187,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label for="content">Content</label>
                         <textarea id="content" name="content" maxlength="50000" required><?php echo htmlspecialchars($content, ENT_QUOTES, 'UTF-8'); ?></textarea>
                         <span class="field-hint">Up to 50,000 characters.</span>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="category">Category</label>
+                        <select id="category" name="category">
+                            <option value="">No category</option>
+                            <?php foreach (BRAINOVERFLOW_POST_CATEGORIES as $categoryOption): ?>
+                                <option value="<?php echo htmlspecialchars($categoryOption, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $category === $categoryOption ? ' selected' : ''; ?>><?php echo htmlspecialchars($categoryOption, ENT_QUOTES, 'UTF-8'); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="field-hint">Optional.</span>
                     </div>
 
                     <div class="form-actions">

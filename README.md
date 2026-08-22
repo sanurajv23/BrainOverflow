@@ -244,6 +244,18 @@ Current database tables:
 
 The intended relationship is that each blog post belongs to a user. This allows the application to support user-owned blog posts and future authorization rules where users can create, update, and delete only their own blogs.
 
+### Blog Post Category Schema Support — August 22, 2026
+
+- Added a nullable `category` column to the existing `blogpost` table without changing its name, ownership relationship, or existing columns.
+- Existing posts remain compatible because posts without a category store `NULL`.
+- Category selection and filtering are intentionally not implemented yet.
+- Applied SQL:
+
+```sql
+ALTER TABLE blogpost
+    ADD COLUMN category VARCHAR(100) NULL AFTER content;
+```
+
 No database passwords, API keys, secrets, or private credentials should be committed to this README or exposed publicly.
 
 ## Local Setup

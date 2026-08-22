@@ -10,6 +10,14 @@ if (!brainoverflow_is_logged_in()) {
 const BRAINOVERFLOW_POST_TITLE_MAX_LENGTH = 255;
 const BRAINOVERFLOW_POST_CONTENT_MAX_LENGTH = 50000;
 const BRAINOVERFLOW_POST_CONTENT_MAX_BYTES = 65535;
+const BRAINOVERFLOW_POST_CATEGORIES = [
+    'Programming',
+    'Web Development',
+    'AI',
+    'Database',
+    'Technology',
+    'Other',
+];
 
 $rawPostId = $_GET['id'] ?? null;
 $postId = is_string($rawPostId) && preg_match('/\A[1-9][0-9]*\z/', $rawPostId) === 1
@@ -27,7 +35,7 @@ if ($postId === false) {
         require __DIR__ . '/config/database.php';
 
         $postQuery = $pdo->prepare(
-            'SELECT id, user_id, title, content
+            'SELECT id, user_id, title, content, category
              FROM blogpost
              WHERE id = :id
              LIMIT 1'
@@ -51,10 +59,12 @@ if ($postId === false) {
 
 $title = $post !== null ? (string) $post['title'] : '';
 $content = $post !== null ? (string) $post['content'] : '';
+$category = $post !== null && $post['category'] !== null ? (string) $post['category'] : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pageState === null) {
     $title = trim(is_string($_POST['title'] ?? null) ? $_POST['title'] : '');
     $content = trim(is_string($_POST['content'] ?? null) ? $_POST['content'] : '');
+    $category = trim(is_string($_POST['category'] ?? null) ? $_POST['category'] : '');
 
     if (!brainoverflow_verify_csrf_token($_POST['csrf_token'] ?? null)) {
         http_response_code(403);
@@ -75,18 +85,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pageState === null) {
             || strlen($content) > BRAINOVERFLOW_POST_CONTENT_MAX_BYTES) {
             $errors[] = 'Content must be 50,000 characters or fewer.';
         }
+
+        if ($category !== '' && !in_array($category, BRAINOVERFLOW_POST_CATEGORIES, true)) {
+            $errors[] = 'Please select a valid category.';
+        }
     }
 
     if (empty($errors)) {
         try {
             $updatePost = $pdo->prepare(
                 'UPDATE blogpost
-                 SET title = :title, content = :content
+                 SET title = :title, content = :content, category = :category
                  WHERE id = :id AND user_id = :user_id'
             );
             $updatePost->execute([
                 'title' => $title,
                 'content' => $content,
+                'category' => $category !== '' ? $category : null,
                 'id' => $postId,
                 'user_id' => $_SESSION['user_id'],
             ]);
@@ -146,12 +161,12 @@ $stateContent = [
         .edit-heading p, .field-hint, .edit-state p { color: var(--color-text-light); }
         .form-field { margin-bottom: 22px; }
         .form-field label { display: block; margin-bottom: 8px; font-weight: 650; }
-        .form-field input, .form-field textarea {
+        .form-field input, .form-field textarea, .form-field select {
             width: 100%; padding: 13px 15px; color: var(--color-text); background: var(--input);
             border: 1px solid var(--border); border-radius: var(--radius-md); font: inherit;
         }
         .form-field textarea { min-height: 330px; resize: vertical; }
-        .form-field input:focus, .form-field textarea:focus { border-color: var(--accent); outline: 3px solid var(--accent-light); }
+        .form-field input:focus, .form-field textarea:focus, .form-field select:focus { border-color: var(--accent); outline: 3px solid var(--accent-light); }
         .field-hint { display: block; margin-top: 6px; font-size: 0.84rem; }
         .form-actions { display: flex; justify-content: flex-end; gap: 12px; }
         .notice-error { margin-bottom: 22px; padding: 13px 16px; color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--radius-md); }
@@ -205,6 +220,17 @@ $stateContent = [
                             <label for="content">Content</label>
                             <textarea id="content" name="content" maxlength="50000" required><?php echo htmlspecialchars($content, ENT_QUOTES, 'UTF-8'); ?></textarea>
                             <span class="field-hint">Up to 50,000 characters.</span>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="category">Category</label>
+                            <select id="category" name="category">
+                                <option value="">No category</option>
+                                <?php foreach (BRAINOVERFLOW_POST_CATEGORIES as $categoryOption): ?>
+                                    <option value="<?php echo htmlspecialchars($categoryOption, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $category === $categoryOption ? ' selected' : ''; ?>><?php echo htmlspecialchars($categoryOption, ENT_QUOTES, 'UTF-8'); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <span class="field-hint">Optional.</span>
                         </div>
 
                         <div class="form-actions">

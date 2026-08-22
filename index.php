@@ -14,7 +14,7 @@ try {
     require __DIR__ . '/config/database.php';
 
     $postsQuery = $pdo->query(
-        'SELECT blogpost.id, blogpost.title, blogpost.content, blogpost.created_at,
+        'SELECT blogpost.id, blogpost.title, blogpost.content, blogpost.category, blogpost.created_at,
                 users.username AS author_username
          FROM blogpost
          INNER JOIN users ON users.id = blogpost.user_id
@@ -217,7 +217,9 @@ function brainoverflow_author_initials(string $username): string
                 <article class="blog-card">
                     <div class="card-thumb thumb-php"></div>
                     <div class="card-body">
-                        <span class="card-category cat-php">Community</span>
+                        <?php if ($post['category'] !== null && trim((string) $post['category']) !== ''): ?>
+                            <span class="card-category cat-php"><?php echo htmlspecialchars($post['category'], ENT_QUOTES, 'UTF-8'); ?></span>
+                        <?php endif; ?>
                         <h3><a href="post.php?id=<?php echo rawurlencode((string) $post['id']); ?>"><?php echo htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8'); ?></a></h3>
                         <p class="card-excerpt"><?php echo htmlspecialchars(brainoverflow_post_excerpt($post['content']), ENT_QUOTES, 'UTF-8'); ?></p>
                         <div class="card-meta">
@@ -258,7 +260,9 @@ function brainoverflow_author_initials(string $username): string
                         <span>POST</span>
                     </div>
                     <div class="row-content">
-                        <span class="card-category cat-php">Community</span>
+                        <?php if ($post['category'] !== null && trim((string) $post['category']) !== ''): ?>
+                            <span class="card-category cat-php"><?php echo htmlspecialchars($post['category'], ENT_QUOTES, 'UTF-8'); ?></span>
+                        <?php endif; ?>
                         <h3><a href="post.php?id=<?php echo rawurlencode((string) $post['id']); ?>"><?php echo htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8'); ?></a></h3>
                         <p class="row-excerpt"><?php echo htmlspecialchars(brainoverflow_post_excerpt($post['content']), ENT_QUOTES, 'UTF-8'); ?></p>
                     </div>
